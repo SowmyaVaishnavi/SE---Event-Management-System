@@ -2,7 +2,7 @@
 
 **Project:** Event Management System  
 **Version:** 1.0  
-**Authors:** Dhanyashree K M, Chirag Arun Yadwad, CH Sowmya Vaishnavi, Chinmayee CM
+**Authors:** Dhanyashree K M, Chirag Arun Yadwad, CH Sowmya Vaishnavi, Chinmayee CM   
 **Date:** 05-09-2026  
 **Status:** Draft
 
