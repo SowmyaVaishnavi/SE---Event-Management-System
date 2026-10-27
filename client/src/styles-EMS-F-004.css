@@ -1,0 +1,35 @@
+/* Append these styles to client/src/styles.css for EMS-F-004. */
+.create-event {
+  margin: 0 0 20px;
+}
+.create-event h2 {
+  margin-top: 0;
+}
+.create-event form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.create-event .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.create-event textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.create-event-message {
+  margin-bottom: 0;
+  color: var(--ok);
+}
+.create-event-message.error {
+  color: var(--danger);
+}
