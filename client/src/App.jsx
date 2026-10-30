@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import EventFilters, { EMPTY_FILTERS } from "./components/EventFilters.jsx";
 import EventList from "./components/EventList.jsx";
 import CreateEvent from "./components/CreateEvent.jsx";
+import MyTickets from "./components/MyTickets.jsx";
+import CheckIn from "./components/CheckIn.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -46,6 +48,8 @@ export default function App({ user, onLogout }) {
         {[
           ["browse", "Browse events"],
           ...(user?.role === "Organizer" ? [["create", "Create event"]] : []),
+          ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
+          ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
         ].map(([key, label]) => (
           <button
             key={key}
@@ -61,6 +65,8 @@ export default function App({ user, onLogout }) {
 
       <main>
         {view === "create" && <CreateEvent onCreated={() => { retry(); setView("browse"); }} />}
+        {view === "tickets" && <MyTickets />}
+        {view === "checkin" && <CheckIn />}
         {view === "browse" && (<>
         <EventFilters filters={filters} onChange={setFilters} onClear={() => setFilters(EMPTY_FILTERS)} />
 
@@ -69,7 +75,7 @@ export default function App({ user, onLogout }) {
         </p>
 
         <section id="results" tabIndex={-1} aria-label="Event results">
-          <EventList events={events} status={status} error={error} onRetry={retry} filtersActive={active} />
+          <EventList events={events} status={status} error={error} onRetry={retry} filtersActive={active} user={user} onBooked={retry} />
         </section>
         </>)}
       </main>
