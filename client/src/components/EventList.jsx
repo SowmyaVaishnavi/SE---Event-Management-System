@@ -2,7 +2,7 @@ import React from "react";
 import EventCard from "./EventCard.jsx";
 
 /** The results area: loading, error, empty and list states (EMS-F-008). */
-export default function EventList({ events, status, error, onRetry, filtersActive }) {
+export default function EventList({ events, status, error, onRetry, filtersActive, user, onBooked }) {
   if (status === "error") {
     return (
       <div className="state state-error" role="alert">
@@ -37,7 +37,7 @@ export default function EventList({ events, status, error, onRetry, filtersActiv
   return (
     <ul className={`grid ${status === "loading" ? "is-refreshing" : ""}`} aria-busy={status === "loading"}>
       {events.map((e) => (
-        <EventCard key={e.eventId ?? e._id} event={{ ...e, eventId: e.eventId ?? e._id }} />
+        <EventCard key={e.eventId ?? e._id} event={{ ...e, eventId: e.eventId ?? e._id }} user={user} onBooked={onBooked} />
       ))}
     </ul>
   );
