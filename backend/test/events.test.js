@@ -121,3 +121,65 @@ test("parseEventFields / publishProblems", () => {
   assert.deepStrictEqual(publishProblems({ capacity: 1, date: inDays(1), venue: "X", price: 0 }), []);
   assert.strictEqual(publishProblems({}).length, 4);
 });
+
+// ---- EMS-F-005 edit event ----
+function editableEvent(over = {}) {
+  const doc = { _id: oid(7), title: "Old title", description: "d", category: "Seminar", capacity: 10, date: inDays(4), venue: "Hall A", price: 0, status: "published", organizer: organizer.id, ...over };
+  doc.toObject = () => ({ ...doc });
+  doc.set = (data) => Object.assign(doc, data);
+  doc.save = async () => doc;
+  return doc;
+}
+
+test("TC-Event-02: the organizer edits their event and gets the saved event back", async () => {
+  const doc = editableEvent();
+  Event.findById = () => doc;
+  Booking.aggregate = async () => [];
+  const res = await call("PUT", `/${oid(7)}`, { user: organizer, body: { title: "New title", venue: "Hall B", price: "250" } });
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.event.title, "New title");
+  assert.strictEqual(res.body.event.venue, "Hall B");
+  assert.strictEqual(doc.price, 250);
+});
+
+test("TC-Event-02: only the owner or an Admin can edit; attendees never", async () => {
+  Event.findById = () => editableEvent();
+  Booking.aggregate = async () => [];
+  const other = { id: oid(22), role: "Organizer" };
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: other, body: { title: "X" } })).status, 403);
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: attendee, body: { title: "X" } })).status, 403);
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: { id: oid(30), role: "Admin" }, body: { title: "X" } })).status, 200);
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { body: { title: "X" } })).status, 401);
+});
+
+test("edit validation: bad values, past date, capacity below bookings, cancelled event", async () => {
+  Event.findById = () => editableEvent();
+  Booking.aggregate = async () => [{ _id: oid(7), n: 6 }];
+  for (const body of [{ title: "" }, { capacity: -1 }, { date: inDays(-1).toISOString() }, { capacity: 5 }, {}]) {
+    assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: organizer, body })).status, 400, JSON.stringify(body));
+  }
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: organizer, body: { status: "draft" } })).status, 409);
+  Event.findById = () => editableEvent({ status: "cancelled" });
+  assert.strictEqual((await call("PUT", `/${oid(7)}`, { user: organizer, body: { title: "X" } })).status, 409);
+  assert.strictEqual((await call("PUT", `/${oid(9)}x`, { user: organizer, body: { title: "X" } })).status, 404);
+});
+
+test("TC-Event-04 on edit: a draft is only published once every detail is set", async () => {
+  Event.findById = () => editableEvent({ status: "draft", capacity: undefined, venue: undefined });
+  Booking.aggregate = async () => [];
+  const res = await call("PUT", `/${oid(7)}`, { user: organizer, body: { status: "published" } });
+  assert.strictEqual(res.status, 400);
+  assert.ok(res.body.errors.includes("capacity is required to publish"));
+  const ok = await call("PUT", `/${oid(7)}`, { user: organizer, body: { status: "published", capacity: 20, venue: "Lab" } });
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(ok.body.event.status, "published");
+});
+
+test("GET /mine lists only the organizer's events", async () => {
+  const res = await call("GET", "/mine", { user: organizer });
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(lastFind, { organizer: organizer.id });
+  await call("GET", "/mine", { user: { id: oid(30), role: "Admin" } });
+  assert.deepStrictEqual(lastFind, {});
+  assert.strictEqual((await call("GET", "/mine", { user: attendee })).status, 403);
+});

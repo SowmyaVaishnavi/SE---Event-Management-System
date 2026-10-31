@@ -12,9 +12,13 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const eventRoutes = require("./routes/events");
 const bookingRoutes = require("./routes/bookings");
+const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
 
 const app = express();
 
+// Behind a TLS proxy, trust its X-Forwarded-Proto so req.secure is correct (EMS-SR-001).
+if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+app.use(httpsOnly({ requireHttps: truthy(process.env.REQUIRE_HTTPS) }));
 app.use(cors());
 app.use(express.json({ limit: "10kb" }));
 
@@ -40,13 +44,13 @@ async function startServer() {
       throw new Error("JWT_SECRET is missing from .env");
     }
 
+    // For a remote database use a TLS connection string (Atlas "mongodb+srv://" is TLS by default,
+    // or add "?tls=true"). See docs/TLS.md.
     await mongoose.connect(process.env.MONGO_URI);
 
     console.log("MongoDB connected successfully");
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
+    listen(app, { port: Number(PORT) });
   } catch (error) {
     console.error("Startup error:", error.message);
     process.exit(1);
