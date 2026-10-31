@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import EventFilters, { EMPTY_FILTERS } from "./components/EventFilters.jsx";
 import EventList from "./components/EventList.jsx";
 import CreateEvent from "./components/CreateEvent.jsx";
@@ -8,23 +8,43 @@ import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
 // Browse + filter page: EMS-F-008 (browse upcoming events) and EMS-F-009 (filter).
+const VIEW_TITLES = {
+  browse: "Upcoming events",
+  create: "Create event",
+  tickets: "My tickets",
+  checkin: "Event check-in",
+};
+
 export default function App({ user, onLogout }) {
+  const mainRef = useRef(null);
+  const firstRender = useRef(true);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [highContrast, setHighContrast] = useState(false);
   const [view, setView] = useState("browse");
+
+  // WCAG 2.4.2: every view has its own page title. 2.4.3 / 4.1.3: after the person
+  // switches view, move focus to the new content so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    document.title = `${VIEW_TITLES[view]} - EMS`;
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus();
+  }, [view]);
   const { events, status, error, retry } = useEvents(filters);
   const active = hasActiveFilters(filters);
 
   return (
     <div className={highContrast ? "app high-contrast" : "app"}>
-      <a className="skip" href="#results">
-        Skip to events
+      <a className="skip" href="#main">
+        Skip to main content
       </a>
 
       <header className="top">
         <div>
           <p className="eyebrow">Event Management System</p>
-          <h1>Upcoming events</h1>
+          <h1>{VIEW_TITLES[view]}</h1>
         </div>
         <div className="top-actions">
           {user && <span className="who">{user.name} ({user.role})</span>}
@@ -63,7 +83,7 @@ export default function App({ user, onLogout }) {
         ))}
       </nav>
 
-      <main>
+      <main id="main" ref={mainRef} tabIndex={-1}>
         {view === "create" && <CreateEvent onCreated={() => { retry(); setView("browse"); }} />}
         {view === "tickets" && <MyTickets />}
         {view === "checkin" && <CheckIn />}

@@ -37,11 +37,11 @@ export default function Login({ onLoggedIn, notice }) {
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="login-email">Email</label>
-          <input id="login-email" name="email" type="email" value={form.email} onChange={handleChange} required />
+          <input id="login-email" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} required />
         </div>
         <div className="field">
           <label htmlFor="login-password">Password</label>
-          <input id="login-password" name="password" type="password" value={form.password} onChange={handleChange} required />
+          <input id="login-password" name="password" type="password" autoComplete="current-password" value={form.password} onChange={handleChange} required />
         </div>
         <button className="btn" type="submit" disabled={status === "saving"}>
           {status === "saving" ? "Logging in..." : "Log in"}

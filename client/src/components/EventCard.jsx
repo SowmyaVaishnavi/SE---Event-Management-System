@@ -42,7 +42,7 @@ export default function EventCard({ event, user, onBooked }) {
           <span className={`price ${event.price ? "" : "free"}`}>{formatPrice(event.price)}</span>
         </div>
 
-        <h3 id={`title-${event.eventId}`}>{event.title}</h3>
+        <h2 id={`title-${event.eventId}`}>{event.title}</h2>
         {event.description && <p className="desc">{event.description}</p>}
 
         <dl className="meta">
