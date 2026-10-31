@@ -47,7 +47,7 @@ export default function App({ user, onLogout }) {
       <nav className="nav" aria-label="Main">
         {[
           ["browse", "Browse events"],
-          ...(user?.role === "Organizer" ? [["create", "Create event"]] : []),
+          ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
         ].map(([key, label]) => (

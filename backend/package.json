@@ -1,10 +1,13 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Event Management System API (Node.js, Express, MongoDB)",
+  "main": "server.js",
   "scripts": {
-    "test": "node --test"
+    "start": "node server.js",
+    "test": "node --test",
+    "create-admin": "node scripts/create-admin.js",
+    "audit:passwords": "node scripts/audit-passwords.js"
   },
   "keywords": [],
   "author": "",
