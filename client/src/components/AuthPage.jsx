@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Login from "./Login.jsx";
 import Register from "./Register.jsx";
 
@@ -6,6 +6,10 @@ import Register from "./Register.jsx";
 export default function AuthPage({ onAuthed }) {
   const [mode, setMode] = useState("register");
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    document.title = `${mode === "register" ? "Create account" : "Log in"} - EMS`;
+  }, [mode]);
 
   return (
     <div className="app auth-page">

@@ -41,11 +41,11 @@ export default function Register({ onRegistered }) {
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="reg-name">Full name</label>
-          <input id="reg-name" name="name" value={form.name} onChange={handleChange} required />
+          <input id="reg-name" name="name" autoComplete="name" value={form.name} onChange={handleChange} required />
         </div>
         <div className="field">
           <label htmlFor="reg-email">Email</label>
-          <input id="reg-email" name="email" type="email" value={form.email} onChange={handleChange} required />
+          <input id="reg-email" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} required />
         </div>
         <div className="field">
           <label htmlFor="reg-password">Password</label>
@@ -54,6 +54,7 @@ export default function Register({ onRegistered }) {
             name="password"
             type="password"
             minLength={8}
+            autoComplete="new-password"
             placeholder="Minimum 8 characters"
             value={form.password}
             onChange={handleChange}

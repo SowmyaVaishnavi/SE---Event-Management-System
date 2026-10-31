@@ -3,13 +3,14 @@
   --surface: #ffffff;
   --text: #1c2430;
   --muted: #566274;
-  --border: #d5dae2;
+  --border: #d5dae2; /* decorative card edges only */
+  --control-border: #667085; /* inputs and buttons: 3:1 or more (WCAG 1.4.11) */
   --accent: #1f4fd8;
   --accent-text: #ffffff;
   --ok: #0f6b3a;
   --warn: #8a4b00;
   --danger: #b3261e;
-  --focus: #f5a300;
+  --focus: #0b3fb8; /* 8:1 on the page background (WCAG 1.4.11) */
   --radius: 10px;
 }
 
@@ -19,6 +20,8 @@
   --text: #ffffff;
   --muted: #f2f2f2;
   --border: #ffffff;
+  --control-border: #ffffff;
+  --focus: #ffe600;
   --accent: #ffe600;
   --accent-text: #000000;
   --ok: #7dff9f;
@@ -91,7 +94,7 @@ h1 {
 /* Filters */
 .filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   gap: 12px;
   align-items: end;
   background: var(--surface);
@@ -112,7 +115,7 @@ input,
 select {
   font: inherit;
   padding: 9px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
@@ -133,7 +136,7 @@ select {
 .btn-secondary {
   background: transparent;
   color: var(--text);
-  border-color: var(--border);
+  border-color: var(--control-border);
 }
 .btn:disabled {
   opacity: 0.5;
@@ -152,7 +155,7 @@ select {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
   gap: 16px;
   transition: opacity 0.15s;
 }
@@ -300,6 +303,12 @@ select {
 .confirm { margin-top: 8px; }
 .scan-video { width: 100%; max-width: 360px; margin-top: 12px; border-radius: 8px; background: #000; }
 .checkin-result { margin-top: 16px; }
-.btn:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .book .message.error, #tickets-heading ~ .message.error, .checkin-result.error { color: #b91c1c; }
 .high-contrast .book .message.error, .high-contrast .checkin-result.error { color: #ff8a80; }
+
+/* Accessibility (EMS-NF-005, WCAG 2.1 AA) */
+main:focus { outline: none; } /* main is only focused by script after a view change */
+.skip { z-index: 20; }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

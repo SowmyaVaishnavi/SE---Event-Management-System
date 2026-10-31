@@ -60,7 +60,7 @@ export default function CreateEvent({ onCreated }) {
 
   return (
     <section className="create-event card" aria-labelledby="create-event-heading">
-      <h2 id="create-event-heading">Create an event</h2>
+      <h2 id="create-event-heading">Event details</h2>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="create-event-title">Title</label>
