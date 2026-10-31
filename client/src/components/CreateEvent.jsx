@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { CATEGORIES } from "../config.js";
 
-// EMS-F-004: create an event through the existing /api/events endpoint.
+// EMS-F-004 / F-007: create an event (title, description, category + capacity, date, venue, price).
+const EMPTY = { title: "", description: "", category: "", capacity: "", date: "", venue: "", price: "0" };
+
 export default function CreateEvent({ onCreated }) {
-  const [form, setForm] = useState({ title: "", description: "", category: "" });
+  const [form, setForm] = useState(EMPTY);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
 
@@ -19,11 +21,21 @@ export default function CreateEvent({ onCreated }) {
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category.trim(),
+      capacity: Number(form.capacity),
+      // datetime-local has no timezone; new Date() reads it as local time.
+      date: form.date ? new Date(form.date).toISOString() : "",
+      venue: form.venue.trim(),
+      price: form.price === "" ? 0 : Number(form.price),
     };
 
     if (!payload.title || !payload.description || !payload.category) {
       setStatus("error");
       setMessage("Title, description and category are required.");
+      return;
+    }
+    if (!payload.capacity || !payload.date || !payload.venue) {
+      setStatus("error");
+      setMessage("Capacity, date and venue are required to publish an event.");
       return;
     }
 
@@ -45,10 +57,11 @@ export default function CreateEvent({ onCreated }) {
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.message || `Could not create event (HTTP ${response.status}).`);
+        const detail = Array.isArray(body.errors) && body.errors.length ? ` (${body.errors.join("; ")})` : "";
+        throw new Error((body.message || `Could not create event (HTTP ${response.status}).`) + detail);
       }
 
-      setForm({ title: "", description: "", category: "" });
+      setForm(EMPTY);
       setStatus("success");
       setMessage("Event created successfully.");
       if (onCreated) onCreated(body.event || body);
@@ -101,6 +114,58 @@ export default function CreateEvent({ onCreated }) {
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
+        </div>
+
+        <div className="field">
+          <label htmlFor="create-event-date">Date and time</label>
+          <input
+            id="create-event-date"
+            name="date"
+            type="datetime-local"
+            value={form.date}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="create-event-venue">Venue</label>
+          <input
+            id="create-event-venue"
+            name="venue"
+            value={form.venue}
+            onChange={handleChange}
+            maxLength={200}
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="create-event-capacity">Capacity</label>
+          <input
+            id="create-event-capacity"
+            name="capacity"
+            type="number"
+            min="1"
+            step="1"
+            value={form.capacity}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="create-event-price">Price (INR, 0 = free)</label>
+          <input
+            id="create-event-price"
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.price}
+            onChange={handleChange}
+            required
+          />
         </div>
 
         <button className="btn" type="submit" disabled={status === "saving"}>
