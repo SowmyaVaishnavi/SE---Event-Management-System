@@ -14,6 +14,9 @@ const eventSchema = new mongoose.Schema(
     price: { type: Number, min: 0, default: 0 },
     status: { type: String, enum: ["draft", "published", "cancelled"], default: "published", index: true },
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    // EMS-F-006
+    cancelledAt: { type: Date, default: null },
+    cancelReason: { type: String, trim: true, maxlength: 500, default: "" },
   },
   { timestamps: true }
 );
@@ -26,5 +29,8 @@ eventSchema.pre("validate", function () {
     if (problems.length) this.invalidate("status", problems.join("; "));
   }
 });
+
+// Browse query (EMS-F-008): published events from now on, by date.
+eventSchema.index({ status: 1, date: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);

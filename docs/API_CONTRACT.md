@@ -91,6 +91,29 @@ Organizer who created the event, or an Admin. Send only the fields to change, an
 - `400` invalid value, nothing to change, capacity lower than the seats already booked, a new date in the past, or publishing a draft that is missing details.
 - `403` not the event's organizer (and not an Admin). `404` unknown id. `409` the event is cancelled, or going back to draft while it has bookings.
 
+### POST /api/events/:id/cancel: cancel an event (F-006, SAD 4.3)
+
+The event's organizer or an Admin. Optional body `{ "reason": "Venue unavailable" }` (at most 500 characters).
+
+`200`:
+```json
+{ "status": "cancelled", "message": "Event cancelled. 12 attendees were alerted.", "bookingsCancelled": 12, "notified": 12, "event": { "...": "...", "status": "cancelled", "cancelledAt": "...", "cancelReason": "Venue unavailable" } }
+```
+
+- Every booking that was not already cancelled becomes `cancelled` with `cancelReason: "event_cancelled"`, so the ticket stops working at check-in.
+- Each of those attendees gets a cancellation alert (see Notifications below). Paid bookings are refunded by an Admin (F-015).
+- `403` not the event's organizer (and not an Admin). `404` unknown id. `409` already cancelled, or the event has already started. `400` bad `reason`.
+- A cancelled event no longer appears in `GET /api/events` and cannot be booked or edited.
+
+## Notifications (Developer, used by F-006 and F-015)
+
+| Endpoint | Response |
+|----------|----------|
+| `GET /api/notifications/me` | `200 { unread, notifications: [ { id, type, title, message, eventId, createdAt, readAt } ] }`, newest first, at most 50. |
+| `POST /api/notifications/:id/read` | `200 { message }`. `404` if the alert is not yours. |
+
+`type` is one of `event_cancelled`, `payment_received`, `refund_completed`, `booking_confirmed`, `event_reminder`. If `NOTIFY_WEBHOOK_URL` is set, each alert is also emailed through that provider (3 tries); otherwise alerts are in-app only.
+
 ## Auth (Developer: EMS-F-001..003, SR-002)
 
 | Endpoint | Body | Response |

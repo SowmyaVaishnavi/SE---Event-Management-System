@@ -12,6 +12,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const eventRoutes = require("./routes/events");
 const bookingRoutes = require("./routes/bookings");
+const notificationRoutes = require("./routes/notifications");
 const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(express.json({ limit: "10kb" }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api", bookingRoutes);
 
 app.get("/", (req, res) => {

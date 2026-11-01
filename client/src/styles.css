@@ -308,3 +308,6 @@ select {
 .my-events { list-style: none; padding: 0; display: grid; gap: 12px; }
 .my-events .btn { width: auto; }
 .create-event .btn + .btn { margin-left: 8px; }
+
+/* EMS-F-006: alerts */
+.alert-read { opacity: 0.75; }

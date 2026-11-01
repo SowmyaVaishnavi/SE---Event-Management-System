@@ -1,5 +1,5 @@
 // /api/events - see docs/API_CONTRACT.md.
-// EMS-F-004 / F-007 create, EMS-F-005 edit, EMS-F-008 / F-009 browse and filter.
+// EMS-F-004 / F-007 create, EMS-F-005 edit, EMS-F-006 cancel, EMS-F-008 / F-009 browse and filter.
 const express = require("express");
 const mongoose = require("mongoose");
 const Event = require("../models/Event");
@@ -7,6 +7,7 @@ const Booking = require("../models/Booking");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { createEvent, toView } = require("./events.create");
 const { parseEventFields, publishProblems } = require("../lib/eventFields");
+const { notify } = require("../lib/notify");
 
 const router = express.Router();
 
@@ -141,6 +142,66 @@ router.put("/:id", requireAuth, requireRole("Organizer"), async (req, res) => {
     if (error.name === "ValidationError") return res.status(400).json({ message: error.message });
     console.error("EMS-F-005 edit event failed:", error);
     return res.status(500).json({ message: "Could not update the event." });
+  }
+});
+
+// POST /api/events/:id/cancel (EMS-F-006, SAD 4.3) - the event's organizer or an Admin.
+// Body (optional): { reason }. Marks the event cancelled, cancels its bookings (tickets stop working)
+// and sends a cancellation alert to everyone who booked. Paid bookings are then refunded by an Admin (F-015).
+router.post("/:id/cancel", requireAuth, requireRole("Organizer"), async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.status(404).json({ message: "Event not found" });
+  const rawReason = req.body?.reason;
+  if (rawReason !== undefined && (typeof rawReason !== "string" || rawReason.length > 500)) {
+    return res.status(400).json({ message: "reason must be text of at most 500 characters" });
+  }
+  const reason = (rawReason || "").trim();
+
+  try {
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (req.user.role !== "Admin" && String(event.organizer) !== String(req.user.id)) {
+      return res.status(403).json({ message: "You can only cancel events you created" });
+    }
+    if (event.status === "cancelled") {
+      return res.status(409).json({ message: "This event is already cancelled" });
+    }
+    if (event.date && new Date(event.date).getTime() < Date.now()) {
+      return res.status(409).json({ message: "This event has already started, so it cannot be cancelled" });
+    }
+
+    event.status = "cancelled";
+    event.cancelledAt = new Date();
+    event.cancelReason = reason;
+    await event.save({ validateBeforeSave: false });
+
+    const active = await Booking.find({ event: event._id, status: { $ne: "cancelled" } }, { user: 1 }).lean();
+    await Booking.updateMany(
+      { event: event._id, status: { $ne: "cancelled" } },
+      { $set: { status: "cancelled", cancelledAt: event.cancelledAt, cancelReason: "event_cancelled" } }
+    );
+
+    const when = event.date ? ` on ${new Date(event.date).toUTCString()}` : "";
+    const notified = await notify(active.map((b) => b.user), {
+      type: "event_cancelled",
+      title: `Cancelled: ${event.title}`,
+      message:
+        `"${event.title}"${when} has been cancelled by the organizer.` +
+        (reason ? ` Reason: ${reason}.` : "") +
+        " Your ticket is no longer valid. If you paid, your refund will be processed and you will be told when it is done.",
+      event: event._id,
+    });
+
+    return res.json({
+      status: "cancelled",
+      message: `Event cancelled. ${notified} attendee${notified === 1 ? " was" : "s were"} alerted.`,
+      bookingsCancelled: active.length,
+      notified,
+      event: toView(event, 0),
+    });
+  } catch (error) {
+    console.error("EMS-F-006 cancel event failed:", error);
+    return res.status(500).json({ message: "Could not cancel the event." });
   }
 });
 
