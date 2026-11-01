@@ -1,0 +1,71 @@
+{
+  "test": "TC-Perf-01",
+  "requirement": "EMS-NF-001",
+  "date": "2026-11-01T17:19:51.271Z",
+  "url": "http://127.0.0.1:5099",
+  "users": 500,
+  "seconds": 90,
+  "rampSeconds": 60,
+  "targetMs": 3000,
+  "throughputPerSecond": 435.7,
+  "overall": {
+    "requests": 39764,
+    "errors": 0,
+    "p50": 150,
+    "p90": 418,
+    "p95": 473,
+    "max": 697
+  },
+  "byRequest": {
+    "GET /api/bookings/me": {
+      "requests": 3995,
+      "errors": 0,
+      "p50": 145,
+      "p90": 283,
+      "p95": 307,
+      "max": 435
+    },
+    "GET /api/events": {
+      "requests": 17453,
+      "errors": 0,
+      "p50": 256,
+      "p90": 482,
+      "p95": 520,
+      "max": 697
+    },
+    "GET /api/events/:id": {
+      "requests": 5858,
+      "errors": 0,
+      "p50": 147,
+      "p90": 278,
+      "p95": 301,
+      "max": 413
+    },
+    "GET /api/events?filters": {
+      "requests": 7992,
+      "errors": 0,
+      "p50": 151,
+      "p90": 301,
+      "p95": 322,
+      "max": 417
+    },
+    "GET /api/notifications/me": {
+      "requests": 3966,
+      "errors": 0,
+      "p50": 94,
+      "p90": 184,
+      "p95": 198,
+      "max": 294
+    },
+    "POST /api/auth/login": {
+      "requests": 500,
+      "errors": 0,
+      "p50": 214,
+      "p90": 390,
+      "p95": 424,
+      "max": 508
+    }
+  },
+  "pass": true,
+  "node": "v24.11.0"
+}
