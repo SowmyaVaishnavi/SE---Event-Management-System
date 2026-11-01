@@ -4,6 +4,7 @@ import EventList from "./components/EventList.jsx";
 import CreateEvent from "./components/CreateEvent.jsx";
 import MyTickets from "./components/MyTickets.jsx";
 import CheckIn from "./components/CheckIn.jsx";
+import MyEvents from "./components/MyEvents.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -11,6 +12,7 @@ import { hasActiveFilters } from "./lib/filterEvents.js";
 const VIEW_TITLES = {
   browse: "Upcoming events",
   create: "Create event",
+  mine: "My events",
   tickets: "My tickets",
   checkin: "Event check-in",
 };
@@ -67,7 +69,7 @@ export default function App({ user, onLogout }) {
       <nav className="nav" aria-label="Main">
         {[
           ["browse", "Browse events"],
-          ...(user?.role === "Organizer" ? [["create", "Create event"]] : []),
+          ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"], ["mine", "My events"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
         ].map(([key, label]) => (
@@ -85,6 +87,7 @@ export default function App({ user, onLogout }) {
 
       <main id="main" ref={mainRef} tabIndex={-1}>
         {view === "create" && <CreateEvent onCreated={() => { retry(); setView("browse"); }} />}
+        {view === "mine" && <MyEvents user={user} onChanged={retry} />}
         {view === "tickets" && <MyTickets />}
         {view === "checkin" && <CheckIn />}
         {view === "browse" && (<>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 
-// EMS-F-001 follow-up: log in via POST /api/auth/login.
+// EMS-F-002: log in with a username or email via POST /api/auth/login.
 export default function Login({ onLoggedIn, notice }) {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ username: "", password: "" });
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
@@ -36,8 +36,8 @@ export default function Login({ onLoggedIn, notice }) {
       {notice && <p className="message" role="status">{notice}</p>}
       <form onSubmit={handleSubmit}>
         <div className="field">
-          <label htmlFor="login-email">Email</label>
-          <input id="login-email" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} required />
+          <label htmlFor="login-username">Username or email</label>
+          <input id="login-username" name="username" autoComplete="username" value={form.username} onChange={handleChange} required />
         </div>
         <div className="field">
           <label htmlFor="login-password">Password</label>

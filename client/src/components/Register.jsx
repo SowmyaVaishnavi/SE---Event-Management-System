@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 // EMS-F-001: register a new account (Attendee or Organizer) via POST /api/auth/register.
-const EMPTY = { name: "", email: "", password: "", role: "Attendee" };
+const EMPTY = { name: "", email: "", username: "", password: "", role: "Attendee" };
 
 export default function Register({ onRegistered }) {
   const [form, setForm] = useState(EMPTY);
@@ -46,6 +46,18 @@ export default function Register({ onRegistered }) {
         <div className="field">
           <label htmlFor="reg-email">Email</label>
           <input id="reg-email" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} required />
+        </div>
+        <div className="field">
+          <label htmlFor="reg-username">Username (optional)</label>
+          <input
+            id="reg-username"
+            name="username"
+            autoComplete="username"
+            pattern="[A-Za-z0-9._\-]{3,30}"
+            title="3 to 30 letters, numbers, dot, dash or underscore"
+            value={form.username}
+            onChange={handleChange}
+          />
         </div>
         <div className="field">
           <label htmlFor="reg-password">Password</label>

@@ -312,3 +312,7 @@ main:focus { outline: none; } /* main is only focused by script after a view cha
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+/* EMS-F-005: My events */
+.my-events { list-style: none; padding: 0; display: grid; gap: 12px; }
+.my-events .btn { width: auto; }
+.create-event .btn + .btn { margin-left: 8px; }
