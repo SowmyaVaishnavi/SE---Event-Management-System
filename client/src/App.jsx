@@ -5,6 +5,7 @@ import CreateEvent from "./components/CreateEvent.jsx";
 import MyTickets from "./components/MyTickets.jsx";
 import CheckIn from "./components/CheckIn.jsx";
 import MyEvents from "./components/MyEvents.jsx";
+import Alerts from "./components/Alerts.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -51,6 +52,7 @@ export default function App({ user, onLogout }) {
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"], ["mine", "My events"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
+          ["alerts", "Alerts"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -69,6 +71,7 @@ export default function App({ user, onLogout }) {
         {view === "mine" && <MyEvents user={user} onChanged={retry} />}
         {view === "tickets" && <MyTickets />}
         {view === "checkin" && <CheckIn />}
+        {view === "alerts" && <Alerts />}
         {view === "browse" && (<>
         <EventFilters filters={filters} onChange={setFilters} onClear={() => setFilters(EMPTY_FILTERS)} />
 

@@ -15,6 +15,7 @@ function ticketView(booking, event) {
     ticketCode: booking.ticketCode,
     status: booking.status,
     checkedInAt: booking.checkedInAt,
+    cancelReason: booking.cancelReason ?? null,
     bookedAt: booking.createdAt,
     event: event
       ? {
@@ -112,6 +113,7 @@ router.post("/bookings/:id/cancel", requireAuth, async (req, res) => {
 
     booking.status = "cancelled";
     booking.cancelledAt = new Date();
+    booking.cancelReason = "attendee";
     await booking.save();
     return res.json({ message: "Booking cancelled. Your seat has been released", ticket: ticketView(booking, event) });
   } catch (error) {

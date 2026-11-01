@@ -19,6 +19,8 @@ const bookingSchema = new mongoose.Schema(
     ticketCode: { type: String, required: true, unique: true, default: generateTicketCode },
     checkedInAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
+    // "attendee" (F-012) or "event_cancelled" (F-006)
+    cancelReason: { type: String, enum: ["attendee", "event_cancelled", null], default: null },
   },
   { timestamps: true }
 );

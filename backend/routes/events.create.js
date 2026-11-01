@@ -53,6 +53,8 @@ function toView(event, registeredCount) {
     price: e.price ?? 0,
     status: e.status,
     organizer: e.organizer ?? null,
+    cancelledAt: e.cancelledAt ?? null,
+    cancelReason: e.cancelReason || "",
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };

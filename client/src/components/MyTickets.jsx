@@ -92,6 +92,9 @@ export default function MyTickets() {
                     {t.event?.venue && (
                       <div><dt>Venue</dt><dd>{t.event.venue}</dd></div>
                     )}
+                    {t.cancelReason === "event_cancelled" && (
+                      <div><dt>Note</dt><dd>The organizer cancelled this event. See Alerts for details.</dd></div>
+                    )}
                     <div><dt>Ticket code</dt><dd className="code">{t.ticketCode}</dd></div>
                   </dl>
 
