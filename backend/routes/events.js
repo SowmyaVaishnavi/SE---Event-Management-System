@@ -4,6 +4,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const Event = require("../models/Event");
 const Booking = require("../models/Booking");
+const Payment = require("../models/Payment");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { createEvent, toView } = require("./events.create");
 const { parseEventFields, publishProblems } = require("../lib/eventFields");
@@ -180,6 +181,8 @@ router.post("/:id/cancel", requireAuth, requireRole("Organizer"), async (req, re
       { event: event._id, status: { $ne: "cancelled" } },
       { $set: { status: "cancelled", cancelledAt: event.cancelledAt, cancelReason: "event_cancelled" } }
     );
+    // Unfinished payments for this event can no longer complete (F-013); paid ones wait for an Admin refund (F-015).
+    await Payment.updateMany({ event: event._id, status: "created" }, { $set: { status: "failed", failureReason: "Event cancelled" } });
 
     const when = event.date ? ` on ${new Date(event.date).toUTCString()}` : "";
     const notified = await notify(active.map((b) => b.user), {

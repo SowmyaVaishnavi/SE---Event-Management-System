@@ -8,6 +8,7 @@ const Event = require("../models/Event");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const Payment = require("../models/Payment");
 const eventRoutes = require("../routes/events");
 const notificationRoutes = require("../routes/notifications");
 const { sendEmail, notify } = require("../lib/notify");
@@ -41,6 +42,7 @@ test.beforeEach(() => {
     return {};
   };
   Booking.aggregate = async () => [];
+  Payment.updateMany = async () => ({});
   Notification.insertMany = async (docs) => docs.map((d, i) => { const n = { _id: oid(500 + notes.length + i), ...d, createdAt: new Date(), readAt: null }; return n; }).map((n) => (notes.push(n), n));
   Notification.updateOne = async () => ({ matchedCount: 1 });
   Notification.find = (f) => q(notes.filter((n) => String(n.user) === String(f.user)));

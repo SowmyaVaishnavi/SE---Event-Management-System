@@ -311,3 +311,14 @@ select {
 
 /* EMS-F-006: alerts */
 .alert-read { opacity: 0.75; }
+
+/* EMS-F-013 / F-014: payment and receipt */
+.payment-panel { border-top: 1px solid currentColor; margin-top: 12px; padding-top: 12px; }
+.receipt { margin-top: 12px; }
+.badge.pending_payment { background: #fff4d6; color: #6b4e00; }
+@media print {
+  body * { visibility: hidden; }
+  .receipt, .receipt * { visibility: visible; }
+  .receipt { position: absolute; left: 0; top: 0; width: 100%; }
+  .receipt .btn { display: none; }
+}
