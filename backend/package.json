@@ -7,7 +7,8 @@
     "start": "node server.js",
     "test": "node --test",
     "create-admin": "node scripts/create-admin.js",
-    "audit:passwords": "node scripts/audit-passwords.js"
+    "audit:passwords": "node scripts/audit-passwords.js",
+    "cert:dev": "node scripts/dev-cert.js"
   },
   "keywords": [],
   "author": "",

@@ -67,6 +67,40 @@ Response `200`: one event object as above. `404` `{ "message": "Event not found"
 - Allowed `category` values live in `src/config.js` (`CATEGORIES`). Please use the same list in the Mongoose schema enum.
 - In dev the UI proxies `/api` to `http://localhost:5000`. Change it with `VITE_API_TARGET`.
 
+## Event management (Developer: EMS-F-004, F-005, F-007)
+
+Errors are `{ "message": "...", "errors": ["..."] }` (`errors` lists each problem when there is more than one).
+
+### POST /api/events: extra rules
+
+- Organizer or Admin token (`401` without a token, `403` for an Attendee).
+- Optional `"status": "draft"` saves an unfinished event; a draft needs only `title`, `description`, `category`.
+- Without `status` (or with `"published"`) the event also needs `capacity` (whole number 1-100000), `date` (ISO, in the future), `venue` and `price` (number >= 0). Missing or wrong values give `400`.
+- `201` `{ "eventId": "...", "status": "published" | "draft", "event": { ...event as in GET } }`.
+
+### GET /api/events/mine: my events (F-005)
+
+Organizer: their own events, drafts included. Admin: all events. `200` `{ "events": [ ...event with registeredCount ] }`. `403` for an Attendee.
+
+### PUT /api/events/:id: edit an event (F-005, F-007)
+
+Organizer who created the event, or an Admin. Send only the fields to change, any of: `title`, `description`, `category`, `capacity`, `date`, `venue`, `price`, `status` (`draft` / `published`).
+
+`200` `{ "message": "Event updated", "event": { ...the saved event } }`. The UI shows this right away.
+
+- `400` invalid value, nothing to change, capacity lower than the seats already booked, a new date in the past, or publishing a draft that is missing details.
+- `403` not the event's organizer (and not an Admin). `404` unknown id. `409` the event is cancelled, or going back to draft while it has bookings.
+
+## Auth (Developer: EMS-F-001..003, SR-002)
+
+| Endpoint | Body | Response |
+|----------|------|----------|
+| `POST /api/auth/register` | `{ name, email, password (8-72 chars), role: "Attendee" \| "Organizer", username? }` | `201 { message, user }`. `400` invalid, `409` email or username taken. |
+| `POST /api/auth/login` | `{ username, password }` or `{ email, password }` | `200 { message, token, user }`. `401` "Invalid username/email or password". |
+| `GET /api/auth/me` | Bearer token | `200 { user }`, `401` if the token is missing or expired. |
+
+`user` is `{ id, name, email, username, role }`; the password hash is never returned. The JWT (`HS256`, 1 day) carries `{ id, role }`. Role checks: `401` not logged in, `403` "You do not have access to this action. It is for ... accounts only". An Admin passes every Organizer check.
+
 ## Booking, tickets and check-in (Product Owner: EMS-F-010..012, F-019, F-020)
 
 All routes need `Authorization: Bearer <token>`. Errors are `{ "message": "..." }`.

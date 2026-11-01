@@ -2,10 +2,35 @@ import React, { useState } from "react";
 import { CATEGORIES } from "../config.js";
 
 // EMS-F-004 / F-007: create an event (title, description, category + capacity, date, venue, price).
+// EMS-F-005: pass `event` to edit an existing event instead (PUT /api/events/:id).
 const EMPTY = { title: "", description: "", category: "", capacity: "", date: "", venue: "", price: "0" };
 
-export default function CreateEvent({ onCreated }) {
-  const [form, setForm] = useState(EMPTY);
+// ISO date -> the "yyyy-mm-ddThh:mm" local time a datetime-local input expects.
+function toLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function formFromEvent(event) {
+  if (!event) return EMPTY;
+  return {
+    title: event.title ?? "",
+    description: event.description ?? "",
+    category: event.category ?? "",
+    capacity: event.capacity == null ? "" : String(event.capacity),
+    date: toLocalInput(event.date),
+    venue: event.venue ?? "",
+    price: String(event.price ?? 0),
+  };
+}
+
+export default function CreateEvent({ onCreated, event: editing, onSaved, onCancel }) {
+  const isEdit = Boolean(editing);
+  const eventId = editing?.eventId ?? editing?._id;
+  const [form, setForm] = useState(() => formFromEvent(editing));
+  const [saved, setSaved] = useState(() => formFromEvent(editing));
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
 
@@ -13,8 +38,8 @@ export default function CreateEvent({ onCreated }) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  async function handleSubmit(e) {
+    e.preventDefault();
     setMessage("");
 
     const payload = {
@@ -39,6 +64,16 @@ export default function CreateEvent({ onCreated }) {
       return;
     }
 
+    // When editing, send only what changed (F-005).
+    const body = isEdit
+      ? Object.fromEntries(Object.entries(payload).filter(([key]) => form[key] !== saved[key]))
+      : payload;
+    if (isEdit && Object.keys(body).length === 0) {
+      setStatus("idle");
+      setMessage("No changes to save.");
+      return;
+    }
+
     setStatus("saving");
     try {
       const headers = { "Content-Type": "application/json", Accept: "application/json" };
@@ -49,31 +84,38 @@ export default function CreateEvent({ onCreated }) {
         // Storage may be unavailable; the API will determine authorization.
       }
 
-      const response = await fetch("/api/events", {
-        method: "POST",
+      const response = await fetch(isEdit ? `/api/events/${eventId}` : "/api/events", {
+        method: isEdit ? "PUT" : "POST",
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
-      const body = await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const detail = Array.isArray(body.errors) && body.errors.length ? ` (${body.errors.join("; ")})` : "";
-        throw new Error((body.message || `Could not create event (HTTP ${response.status}).`) + detail);
+        const detail = Array.isArray(result.errors) && result.errors.length ? ` (${result.errors.join("; ")})` : "";
+        throw new Error((result.message || `Could not ${isEdit ? "save" : "create"} event (HTTP ${response.status}).`) + detail);
       }
 
-      setForm(EMPTY);
       setStatus("success");
+      if (isEdit) {
+        setForm(formFromEvent(result.event));
+        setSaved(formFromEvent(result.event));
+        setMessage("Changes saved.");
+        if (onSaved) onSaved(result.event);
+        return;
+      }
+      setForm(EMPTY);
       setMessage("Event created successfully.");
-      if (onCreated) onCreated(body.event || body);
+      if (onCreated) onCreated(result.event || result);
     } catch (error) {
       setStatus("error");
-      setMessage(error.message || "Could not create event.");
+      setMessage(error.message || `Could not ${isEdit ? "save" : "create"} event.`);
     }
   }
 
   return (
     <section className="create-event card" aria-labelledby="create-event-heading">
-      <h2 id="create-event-heading">Create an event</h2>
+      <h2 id="create-event-heading">{isEdit ? `Edit "${editing.title}"` : "Create an event"}</h2>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="create-event-title">Title</label>
@@ -169,8 +211,13 @@ export default function CreateEvent({ onCreated }) {
         </div>
 
         <button className="btn" type="submit" disabled={status === "saving"}>
-          {status === "saving" ? "Creating..." : "Create event"}
+          {status === "saving" ? "Saving..." : isEdit ? "Save changes" : "Create event"}
         </button>
+        {isEdit && onCancel && (
+          <button className="btn btn-secondary" type="button" onClick={onCancel}>
+            Back to my events
+          </button>
+        )}
       </form>
 
       {message && (
