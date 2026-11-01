@@ -1,21 +1,26 @@
 // EMS-F-010 book a spot, F-011 QR ticket, F-012 cancel, F-019 scan ticket (check-in), F-020 show ticket.
 // Endpoint shapes follow SAD 4.3: POST /api/events/{id}/register -> {status, ticketId, qrCode}; POST /api/checkin/scan -> {status: "checked-in"}.
 // Capacity / date / status are read defensively from the Event (the Developer adds them in EMS-F-004..007).
+// EMS-F-013: a paid event's booking starts as "pending_payment" and is confirmed by routes/payments.js.
 const express = require("express");
 const mongoose = require("mongoose");
 const Event = require("../models/Event");
 const Booking = require("../models/Booking");
+const Payment = require("../models/Payment");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { startPayment, expireStaleHolds, paymentView, HOLD_MINUTES } = require("./payments");
 
 const router = express.Router();
 
-function ticketView(booking, event) {
+function ticketView(booking, event, payment) {
   return {
     bookingId: booking._id,
     ticketCode: booking.ticketCode,
     status: booking.status,
     checkedInAt: booking.checkedInAt,
     cancelReason: booking.cancelReason ?? null,
+    holdExpiresAt: booking.holdExpiresAt ?? null,
+    payment: payment ? paymentView(payment) : null,
     bookedAt: booking.createdAt,
     event: event
       ? {
@@ -46,16 +51,51 @@ router.post("/events/:id/register", requireAuth, requireRole("Attendee"), async 
       return res.status(409).json({ message: "This event has already started" });
     }
 
-    const existing = await Booking.findOne({ user: req.user.id, event: id, status: "confirmed" });
+    const paid = Number(event.price) > 0;
+    if (paid) await expireStaleHolds(id);
+
+    const existing = await Booking.findOne({ user: req.user.id, event: id, status: { $in: ["confirmed", "pending_payment"] } });
     if (existing) {
-      return res.status(409).json({ message: "You have already booked this event" });
+      return res.status(409).json({
+        message: existing.status === "pending_payment"
+          ? "You already have a seat held for this event. Complete the payment under My tickets"
+          : "You have already booked this event",
+      });
     }
 
     if (typeof event.capacity === "number") {
-      const taken = await Booking.countDocuments({ event: id, status: "confirmed" });
+      // Seats held by an unpaid booking count as taken until the hold ends.
+      const taken = await Booking.countDocuments({ event: id, status: "confirmed" }) +
+        (paid ? await Booking.countDocuments({ event: id, status: "pending_payment" }) : 0);
       if (taken >= event.capacity) {
         return res.status(400).json({ message: "Event full. No seats left" });
       }
+    }
+
+    if (paid) {
+      // EMS-F-013: hold the seat and start the payment; the booking is confirmed only after the payment succeeds.
+      const held = await Booking.create({
+        user: req.user.id,
+        event: id,
+        status: "pending_payment",
+        holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60000),
+      });
+      let started;
+      try {
+        started = await startPayment({ booking: held, event, userId: req.user.id });
+      } catch (error) {
+        await Booking.deleteOne({ _id: held._id });
+        console.error("Start payment failed:", error.message);
+        return res.status(502).json({ message: "The payment gateway is not available right now. You have not been charged; please try again." });
+      }
+      return res.status(201).json({
+        status: "pending_payment",
+        message: `Seat held for ${HOLD_MINUTES} minutes. Complete the payment to confirm your booking.`,
+        bookingId: held._id,
+        payment: paymentView(started.payment),
+        checkout: started.checkout,
+        ticket: ticketView(held, event, started.payment),
+      });
     }
 
     const booking = await Booking.create({ user: req.user.id, event: id });
@@ -81,7 +121,12 @@ router.get("/bookings/me", requireAuth, async (req, res) => {
     const bookings = await Booking.find({ user: req.user.id }).sort({ createdAt: -1 }).lean();
     const events = await Event.find({ _id: { $in: bookings.map((b) => b.event) } }).lean();
     const byId = new Map(events.map((e) => [String(e._id), e]));
-    res.json({ tickets: bookings.map((b) => ticketView(b, byId.get(String(b.event)))) });
+    // Payments exist only for paid events (EMS-F-013), so skip the lookup when every event is free.
+    const payments = events.some((e) => Number(e.price) > 0)
+      ? await Payment.find({ booking: { $in: bookings.map((b) => b._id) } }).lean()
+      : [];
+    const payOf = new Map(payments.map((p) => [String(p.booking), p]));
+    res.json({ tickets: bookings.map((b) => ticketView(b, byId.get(String(b.event)), payOf.get(String(b._id)))) });
   } catch (error) {
     console.error("Load tickets failed:", error.message);
     res.status(500).json({ message: "Could not load your tickets" });
@@ -111,11 +156,21 @@ router.post("/bookings/:id/cancel", requireAuth, async (req, res) => {
       return res.status(409).json({ message: "This event has already started" });
     }
 
+    const wasPending = booking.status === "pending_payment";
     booking.status = "cancelled";
     booking.cancelledAt = new Date();
     booking.cancelReason = "attendee";
     await booking.save();
-    return res.json({ message: "Booking cancelled. Your seat has been released", ticket: ticketView(booking, event) });
+
+    let message = "Booking cancelled. Your seat has been released";
+    if (Number(event?.price) > 0) {
+      if (wasPending) {
+        await Payment.updateOne({ booking: booking._id, status: "created" }, { $set: { status: "failed", failureReason: "Booking cancelled before paying" } });
+      } else {
+        message += ". Your payment will be refunded by the organizers (you will get an alert when it is done)";
+      }
+    }
+    return res.json({ message, ticket: ticketView(booking, event) });
   } catch (error) {
     console.error("Cancel failed:", error.message);
     return res.status(500).json({ message: "Could not cancel the booking" });
@@ -137,6 +192,9 @@ router.post("/checkin/scan", requireAuth, requireRole("Organizer", "Admin"), asy
 
     if (booking.status === "cancelled") {
       return res.status(400).json({ message: "This ticket was cancelled", attendee, ticket: ticketView(booking, event) });
+    }
+    if (booking.status === "pending_payment") {
+      return res.status(400).json({ message: "This ticket is not paid yet", attendee, ticket: ticketView(booking, event) });
     }
     if (req.body?.ticketId && String(req.body.ticketId) !== String(booking._id)) {
       return res.status(400).json({ message: "Invalid ticket. The ticket id does not match this QR code" });

@@ -26,9 +26,14 @@ export default function EventCard({ event, user, onBooked }) {
   async function handleBook() {
     setBooking({ state: "saving", message: "" });
     try {
-      await bookEvent(event.eventId);
-      setBooking({ state: "done", message: "Booked! Your ticket is under My tickets." });
-      onBooked?.();
+      const result = await bookEvent(event.eventId);
+      setBooking({
+        state: "done",
+        message: result?.status === "pending_payment"
+          ? "Seat held. Pay under My tickets to confirm your booking."
+          : "Booked! Your ticket is under My tickets.",
+      });
+      onBooked?.(result);
     } catch (err) {
       setBooking({ state: "error", message: err.message });
     }

@@ -6,6 +6,7 @@ import MyTickets from "./components/MyTickets.jsx";
 import CheckIn from "./components/CheckIn.jsx";
 import MyEvents from "./components/MyEvents.jsx";
 import Alerts from "./components/Alerts.jsx";
+import AdminPayments from "./components/AdminPayments.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -52,6 +53,7 @@ export default function App({ user, onLogout }) {
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"], ["mine", "My events"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
+          ...(user?.role === "Admin" ? [["payments", "Payments"]] : []),
           ["alerts", "Alerts"],
         ].map(([key, label]) => (
           <button
@@ -69,9 +71,10 @@ export default function App({ user, onLogout }) {
       <main>
         {view === "create" && <CreateEvent onCreated={() => { retry(); setView("browse"); }} />}
         {view === "mine" && <MyEvents user={user} onChanged={retry} />}
-        {view === "tickets" && <MyTickets />}
+        {view === "tickets" && <MyTickets user={user} />}
         {view === "checkin" && <CheckIn />}
         {view === "alerts" && <Alerts />}
+        {view === "payments" && <AdminPayments />}
         {view === "browse" && (<>
         <EventFilters filters={filters} onChange={setFilters} onClear={() => setFilters(EMPTY_FILTERS)} />
 
@@ -80,7 +83,7 @@ export default function App({ user, onLogout }) {
         </p>
 
         <section id="results" tabIndex={-1} aria-label="Event results">
-          <EventList events={events} status={status} error={error} onRetry={retry} filtersActive={active} user={user} onBooked={retry} />
+          <EventList events={events} status={status} error={error} onRetry={retry} filtersActive={active} user={user} onBooked={(result) => { retry(); if (result?.status === "pending_payment") setView("tickets"); }} />
         </section>
         </>)}
       </main>

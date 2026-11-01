@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { cancelBooking, fetchMyTickets } from "../api/bookings.js";
+import { fetchReceipt } from "../api/payments.js";
+import PaymentPanel from "./PaymentPanel.jsx";
+import Receipt from "./Receipt.jsx";
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -20,11 +23,27 @@ function TicketQr({ code, title }) {
   return <img className="qr" src={src} width="220" height="220" alt={`QR code for your ${title} ticket. Ticket code ${code}`} />;
 }
 
-/** My tickets: show ticket + QR (EMS-F-011, F-020) and cancel a booking (EMS-F-012). */
-export default function MyTickets() {
+/** My tickets: show ticket + QR (EMS-F-011, F-020) and cancel a booking (EMS-F-012).
+ *  Paid events (EMS-F-013/014): pay for a held seat, then view the receipt. */
+export default function MyTickets({ user }) {
   const [state, setState] = useState({ status: "loading", tickets: [], error: "" });
   const [confirming, setConfirming] = useState(null);
   const [notice, setNotice] = useState({ kind: "", text: "" });
+  const [receipts, setReceipts] = useState({});
+
+  async function showReceipt(bookingId, paymentId) {
+    try {
+      const receipt = await fetchReceipt(paymentId);
+      setReceipts((r) => ({ ...r, [bookingId]: receipt }));
+    } catch (err) {
+      setNotice({ kind: "error", text: err.message });
+    }
+  }
+
+  async function handlePaid(bookingId, receipt) {
+    await load();
+    if (receipt) setReceipts((r) => ({ ...r, [bookingId]: receipt }));
+  }
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, status: "loading", error: "" }));
@@ -75,13 +94,15 @@ export default function MyTickets() {
           {state.tickets.map((t) => {
             const title = t.event?.title ?? "Event";
             const active = t.status === "confirmed";
+            const pending = t.status === "pending_payment";
+            const paid = t.payment && ["paid", "refunded"].includes(t.payment.status);
             return (
               <li className="card ticket" key={t.bookingId}>
                 <article aria-labelledby={`ticket-${t.bookingId}`}>
                   <div className="card-top">
                     <span className="chip">{t.event?.category ?? "Event"}</span>
                     <span className={`badge ${t.checkedInAt ? "used" : t.status}`}>
-                      {t.status === "cancelled" ? "Cancelled" : t.checkedInAt ? "Checked in" : "Confirmed"}
+                      {t.status === "cancelled" ? "Cancelled" : pending ? "Payment pending" : t.checkedInAt ? "Checked in" : "Confirmed"}
                     </span>
                   </div>
                   <h3 id={`ticket-${t.bookingId}`}>{title}</h3>
@@ -100,7 +121,26 @@ export default function MyTickets() {
 
                   {active && <TicketQr code={t.ticketCode} title={title} />}
 
-                  {active && !t.checkedInAt && (
+                  {pending && t.payment && (
+                    <PaymentPanel
+                      ticket={t}
+                      user={user}
+                      onPaid={(receipt) => handlePaid(t.bookingId, receipt)}
+                      onFailed={(message) => { load(); setNotice({ kind: "error", text: message }); }}
+                    />
+                  )}
+
+                  {paid && !receipts[t.bookingId] && (
+                    <button type="button" className="btn btn-secondary" onClick={() => showReceipt(t.bookingId, t.payment.paymentId)}>
+                      View receipt<span className="sr-only"> for {title}</span>
+                    </button>
+                  )}
+                  {receipts[t.bookingId] && (
+                    <Receipt receipt={receipts[t.bookingId]} onClose={() => setReceipts((r) => ({ ...r, [t.bookingId]: null }))} />
+                  )}
+                  {t.payment?.status === "refunded" && <p className="desc">Refunded.</p>}
+
+                  {(active || pending) && !t.checkedInAt && (
                     confirming === t.bookingId ? (
                       <div className="confirm" role="group" aria-label={`Confirm cancelling ${title}`}>
                         <p>Cancel this booking? Your seat will be released.</p>

@@ -15,12 +15,18 @@ const bookingSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     event: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true, index: true },
-    status: { type: String, enum: ["confirmed", "cancelled"], default: "confirmed" },
+    // "pending_payment": seat held while a paid booking is being paid for (EMS-F-013). No working ticket yet.
+    status: { type: String, enum: ["pending_payment", "confirmed", "cancelled"], default: "confirmed" },
+    holdExpiresAt: { type: Date, default: null },
     ticketCode: { type: String, required: true, unique: true, default: generateTicketCode },
     checkedInAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
-    // "attendee" (F-012) or "event_cancelled" (F-006)
-    cancelReason: { type: String, enum: ["attendee", "event_cancelled", null], default: null },
+    // "attendee" (F-012), "event_cancelled" (F-006), "payment_failed" / "payment_expired" (F-013), "refunded" (F-015)
+    cancelReason: {
+      type: String,
+      enum: ["attendee", "event_cancelled", "payment_failed", "payment_expired", "refunded", null],
+      default: null,
+    },
   },
   { timestamps: true }
 );

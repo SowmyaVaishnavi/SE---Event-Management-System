@@ -13,6 +13,8 @@ const authRoutes = require("./routes/authRoutes");
 const eventRoutes = require("./routes/events");
 const bookingRoutes = require("./routes/bookings");
 const notificationRoutes = require("./routes/notifications");
+const paymentRoutes = require("./routes/payments");
+const { rejectCardData } = require("./lib/cardData");
 const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
 
 const app = express();
@@ -22,10 +24,13 @@ if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PRO
 app.use(httpsOnly({ requireHttps: truthy(process.env.REQUIRE_HTTPS) }));
 app.use(cors());
 app.use(express.json({ limit: "10kb" }));
+// EMS-SR-003: refuse any request that carries card details; card data is only ever typed on the gateway's page.
+app.use(rejectCardData);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api", bookingRoutes);
 
 app.get("/", (req, res) => {

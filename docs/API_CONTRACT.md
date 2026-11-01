@@ -114,6 +114,33 @@ The event's organizer or an Admin. Optional body `{ "reason": "Venue unavailable
 
 `type` is one of `event_cancelled`, `payment_received`, `refund_completed`, `booking_confirmed`, `event_reminder`. If `NOTIFY_WEBHOOK_URL` is set, each alert is also emailed through that provider (3 tries); otherwise alerts are in-app only.
 
+## Payments (Developer: EMS-F-013..015, SR-003)
+
+Full flow and rules: `docs/PAYMENTS.md`. Amounts are INR rupees in responses (stored as whole paise). Requests must never contain card data (`400`).
+
+### POST /api/events/:id/register for a paid event (price > 0)
+
+`201`:
+```json
+{ "status": "pending_payment", "message": "Seat held for 15 minutes. Complete the payment to confirm your booking.",
+  "bookingId": "...", "payment": { "paymentId": "...", "amount": 499.5, "currency": "INR", "provider": "sandbox", "status": "created", "checkout": { "provider": "sandbox", "orderId": "order_sbx_...", "amount": 49950, "currency": "INR" } },
+  "checkout": { "...": "same as payment.checkout" }, "ticket": { "...": "status pending_payment" } }
+```
+
+- `409` already booked or a seat already held for this event. `502` gateway unavailable (nothing held or charged).
+- Free events still return `201 { "status": "confirmed", ... }` as before.
+- `GET /api/bookings/me` tickets now include `status: "pending_payment"`, `holdExpiresAt` and `payment` (`null` for free events). Check-in of an unpaid ticket gives `400 "This ticket is not paid yet"`.
+
+| Endpoint | Who | Body | Response |
+|----------|-----|------|----------|
+| `POST /api/payments/:id/sandbox-checkout` | payer | `{ outcome: "success" \| "failure" }` | `200 { orderId, paymentId, signature }`, `402` declined. `404` when Razorpay is configured. |
+| `POST /api/payments/:id/confirm` | payer | `{ paymentId, signature }` (from the gateway) | `200 { status: "paid", message, payment, receipt }`. `400` signature not valid (booking not confirmed). `409` paid after the hold ended (recorded, `refundDue`), or already refunded. Repeating a successful confirm returns `200` again. |
+| `POST /api/payments/:id/fail` | payer | `{ reason? }` | `200`: payment `failed`, seat released. |
+| `GET /api/payments/:id/receipt` | payer or Admin | | `200 { receipt: { receiptNumber, amount, amountText, paidAt, paymentReference, event { title, date, venue }, attendee { name, email }, ticketCode, status, refundedAt } }`. `409` not paid. `404` not yours. |
+| `GET /api/payments/me` | any | | `200 { payments: [...] }` |
+| `GET /api/payments?status=paid` | Admin | | `200 { payments: [ { ...payment, event, attendee, bookingStatus, refundable } ] }` |
+| `POST /api/payments/:id/refund` | Admin | `{ reason? }` | `200 { status: "refunded", message, payment }`; the attendee gets a `refund_completed` alert. `403` not Admin. `409` not eligible / already refunded. `502` gateway refused (nothing changed). |
+
 ## Auth (Developer: EMS-F-001..003, SR-002)
 
 | Endpoint | Body | Response |
