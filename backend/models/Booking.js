@@ -31,6 +31,9 @@ const bookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Seat counts and the per-event booking lists (EMS-NF-001): count confirmed bookings of one event fast.
+bookingSchema.index({ event: 1, status: 1 });
+
 // One active booking per attendee per event (a cancelled one does not block re-booking).
 bookingSchema.index(
   { user: 1, event: 1 },

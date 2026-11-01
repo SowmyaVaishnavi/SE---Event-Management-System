@@ -15,9 +15,14 @@ const bookingRoutes = require("./routes/bookings");
 const notificationRoutes = require("./routes/notifications");
 const paymentRoutes = require("./routes/payments");
 const { rejectCardData } = require("./lib/cardData");
+const healthRoutes = require("./routes/health");
+const { responseTiming } = require("./middleware/timing");
 const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
 
 const app = express();
+
+// EMS-NF-001: time every request (Server-Timing header, slow-request log, /api/health/metrics).
+app.use(responseTiming);
 
 // Behind a TLS proxy, trust its X-Forwarded-Proto so req.secure is correct (EMS-SR-001).
 if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
@@ -27,6 +32,7 @@ app.use(express.json({ limit: "10kb" }));
 // EMS-SR-003: refuse any request that carries card details; card data is only ever typed on the gateway's page.
 app.use(rejectCardData);
 
+app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/notifications", notificationRoutes);

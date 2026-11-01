@@ -9,7 +9,9 @@
     "create-admin": "node scripts/create-admin.js",
     "audit:passwords": "node scripts/audit-passwords.js",
     "cert:dev": "node scripts/dev-cert.js",
-    "audit:card-data": "node scripts/audit-card-data.js"
+    "audit:card-data": "node scripts/audit-card-data.js",
+    "seed:perf": "node scripts/seed-perf.js",
+    "perf": "node scripts/perf.js"
   },
   "keywords": [],
   "author": "",

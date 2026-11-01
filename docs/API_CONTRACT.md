@@ -141,6 +141,15 @@ Full flow and rules: `docs/PAYMENTS.md`. Amounts are INR rupees in responses (st
 | `GET /api/payments?status=paid` | Admin | | `200 { payments: [ { ...payment, event, attendee, bookingStatus, refundable } ] }` |
 | `POST /api/payments/:id/refund` | Admin | `{ reason? }` | `200 { status: "refunded", message, payment }`; the attendee gets a `refund_completed` alert. `403` not Admin. `409` not eligible / already refunded. `502` gateway refused (nothing changed). |
 
+## Health and response time (Developer: EMS-NF-001)
+
+| Endpoint | Who | Response |
+|----------|-----|----------|
+| `GET /api/health` | public | `200 { status: "ok", db: "connected", uptimeSeconds }`, or `503 { status: "degraded", db: "disconnected" }`. For uptime monitors. |
+| `GET /api/health/metrics` | Admin | `200 { targetMs: 3000, sample, overall: { p50, p90, p95, max }, meetsTarget, routes: { "GET /api/events": { count, errors, slow, p50, p90, p95, max } } }` over the last 1,000 requests per route. |
+
+Every response has a `Server-Timing: app;dur=<ms>` header. See `docs/PERFORMANCE.md`.
+
 ## Auth (Developer: EMS-F-001..003, SR-002)
 
 | Endpoint | Body | Response |
