@@ -11,7 +11,9 @@
     "cert:dev": "node scripts/dev-cert.js",
     "audit:card-data": "node scripts/audit-card-data.js",
     "seed:perf": "node scripts/seed-perf.js",
-    "perf": "node scripts/perf.js"
+    "perf": "node scripts/perf.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "check:tls": "node scripts/check-tls.js"
   },
   "keywords": [],
   "author": "",
