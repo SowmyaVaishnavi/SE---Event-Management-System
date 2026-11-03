@@ -9,6 +9,7 @@ const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { startPayment, expireStaleHolds, paymentView, HOLD_MINUTES } = require("./payments");
+const audit = require("../lib/auditLog");
 
 const router = express.Router();
 
@@ -88,6 +89,7 @@ router.post("/events/:id/register", requireAuth, requireRole("Attendee"), async 
         console.error("Start payment failed:", error.message);
         return res.status(502).json({ message: "The payment gateway is not available right now. You have not been charged; please try again." });
       }
+      audit.record(req, { category: "booking", action: "booking_held", target: `booking:${held._id}`, detail: { eventId: String(id), holdMinutes: HOLD_MINUTES } });
       return res.status(201).json({
         status: "pending_payment",
         message: `Seat held for ${HOLD_MINUTES} minutes. Complete the payment to confirm your booking.`,
@@ -99,6 +101,7 @@ router.post("/events/:id/register", requireAuth, requireRole("Attendee"), async 
     }
 
     const booking = await Booking.create({ user: req.user.id, event: id });
+    audit.record(req, { category: "booking", action: "booking_confirmed", target: `booking:${booking._id}`, detail: { eventId: String(id) } });
     return res.status(201).json({
       status: "confirmed",
       ticketId: booking._id,
@@ -161,6 +164,7 @@ router.post("/bookings/:id/cancel", requireAuth, async (req, res) => {
     booking.cancelledAt = new Date();
     booking.cancelReason = "attendee";
     await booking.save();
+    audit.record(req, { category: "booking", action: "booking_cancelled", target: `booking:${booking._id}`, detail: { eventId: String(booking.event), wasPendingPayment: wasPending } });
 
     let message = "Booking cancelled. Your seat has been released";
     if (Number(event?.price) > 0) {
@@ -184,22 +188,30 @@ router.post("/checkin/scan", requireAuth, requireRole("Organizer", "Admin"), asy
     const code = typeof raw === "string" ? raw.trim().toUpperCase() : "";
     if (!code) return res.status(400).json({ message: "Enter or scan a ticket code" });
 
+    const refused = (reason, booking) =>
+      audit.record(req, { category: "booking", action: "checkin_refused", outcome: "failure", target: booking ? `booking:${booking._id}` : "", detail: { reason } });
+
     const booking = await Booking.findOne({ ticketCode: code }).populate("user", "name email");
+    if (!booking) refused("unknown_ticket");
     if (!booking) return res.status(400).json({ message: "Invalid ticket. No booking found for this code" });
 
     const event = await Event.findById(booking.event).lean();
     const attendee = booking.user ? { name: booking.user.name, email: booking.user.email } : null;
 
     if (booking.status === "cancelled") {
+      refused("ticket_cancelled", booking);
       return res.status(400).json({ message: "This ticket was cancelled", attendee, ticket: ticketView(booking, event) });
     }
     if (booking.status === "pending_payment") {
+      refused("not_paid", booking);
       return res.status(400).json({ message: "This ticket is not paid yet", attendee, ticket: ticketView(booking, event) });
     }
     if (req.body?.ticketId && String(req.body.ticketId) !== String(booking._id)) {
+      refused("ticket_id_mismatch", booking);
       return res.status(400).json({ message: "Invalid ticket. The ticket id does not match this QR code" });
     }
     if (booking.checkedInAt) {
+      refused("already_used", booking);
       return res.status(400).json({
         message: "Already checked in",
         attendee,
@@ -209,6 +221,7 @@ router.post("/checkin/scan", requireAuth, requireRole("Organizer", "Admin"), asy
 
     booking.checkedInAt = new Date();
     await booking.save();
+    audit.record(req, { category: "booking", action: "checkin_success", target: `booking:${booking._id}`, detail: { eventId: String(booking.event) } });
     return res.json({ status: "checked-in", message: "Check-in successful", attendee, ticket: ticketView(booking, event) });
   } catch (error) {
     console.error("Check-in failed:", error.message);

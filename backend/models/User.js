@@ -42,7 +42,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ROLES,
       required: true
-    }
+    },
+
+    // EMS-SR-005: wrong passwords in a row, and when the lock ends (see lib/lockout.js).
+    failedLoginAttempts: { type: Number, default: 0, min: 0 },
+    lockUntil: { type: Date, default: null }
   },
   { timestamps: true }
 );
@@ -60,6 +64,8 @@ userSchema.pre("save", async function () {
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.password;
+    delete ret.failedLoginAttempts;
+    delete ret.lockUntil;
     return ret;
   }
 });

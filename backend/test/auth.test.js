@@ -19,6 +19,17 @@ test.beforeEach(() => {
   users = [];
   User.findOne = (f) => q(users.find((u) => matches(u, f)) ?? null);
   User.findById = (id) => q(users.find((u) => String(u._id) === String(id)) ?? null);
+  // Lockout counters (EMS-SR-005): apply $inc / $set to the stored user.
+  const apply = (f, u) => {
+    const doc = users.find((x) => String(x._id) === String(f._id));
+    if (doc) {
+      for (const [k, v] of Object.entries(u.$inc || {})) doc[k] = (doc[k] || 0) + v;
+      Object.assign(doc, u.$set || {});
+    }
+    return doc ?? null;
+  };
+  User.findOneAndUpdate = async (f, u) => apply(f, u);
+  User.updateOne = async (f, u) => ({ matchedCount: apply(f, u) ? 1 : 0 });
   // Runs the real schema validation and pre-save hook, then keeps the document in memory.
   User.create = async (data) => {
     const doc = new User(data);

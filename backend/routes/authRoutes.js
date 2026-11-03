@@ -4,9 +4,21 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { verifyPassword } = require("../lib/passwords");
 const { requireAuth } = require("../middleware/auth");
+const audit = require("../lib/auditLog");
+const { maxAttempts, lockMinutes, isLocked, secondsLeft } = require("../lib/lockout");
 
 const router = express.Router();
 const { SIGNUP_ROLES, USERNAME } = User;
+
+// EMS-SR-005: 423 Locked (SAD 4.3) with the time left, so the UI can tell the person when to try again.
+function lockedResponse(res, user, now = Date.now()) {
+  const seconds = secondsLeft(user, now);
+  res.set("Retry-After", String(seconds));
+  return res.status(423).json({
+    message: `Too many failed login attempts. This account is locked for now. Try again in ${Math.ceil(seconds / 60)} minute(s).`,
+    retryAfterSeconds: seconds
+  });
+}
 
 const publicUser = (user) => ({
   id: user._id,
@@ -55,6 +67,10 @@ router.post("/register", async (req, res) => {
     });
 
     if (existingUser) {
+      audit.record(req, {
+        category: "auth", action: "register_rejected", outcome: "failure", actorLabel: normalizedEmail,
+        detail: { reason: existingUser.email === normalizedEmail ? "email_taken" : "username_taken" }
+      });
       return res.status(409).json({
         message: existingUser.email === normalizedEmail ? "Email already registered" : "Username already taken"
       });
@@ -68,6 +84,8 @@ router.post("/register", async (req, res) => {
       password,
       role
     });
+
+    audit.record(req, { category: "auth", action: "register_success", outcome: "success", actor: user._id, role: user.role, actorLabel: normalizedEmail });
 
     res.status(201).json({
       message: "Registration successful",
@@ -100,11 +118,46 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await User.findOne(login.includes("@") ? { email: login } : { username: login }).select("+password");
+    const now = Date.now();
+
+    // A locked account is refused before the password is even checked, so guessing cannot continue.
+    if (user && isLocked(user, now)) {
+      audit.record(req, { category: "auth", action: "login_blocked", outcome: "denied", actor: user._id, role: user.role, actorLabel: login, detail: { reason: "account_locked" } });
+      return lockedResponse(res, user, now);
+    }
+
     const ok = await verifyPassword(password, user?.password);
 
     if (!user || !ok) {
+      if (!user) {
+        audit.record(req, { category: "auth", action: "login_failed", outcome: "failure", actorLabel: login, detail: { reason: "unknown_account" } });
+        return res.status(401).json({ message: "Invalid username/email or password" });
+      }
+
+      // Count the failure in one atomic step so parallel guesses cannot slip past the limit.
+      const updated = await User.findOneAndUpdate(
+        { _id: user._id },
+        { $inc: { failedLoginAttempts: 1 } },
+        { returnDocument: "after", projection: { failedLoginAttempts: 1 } }
+      );
+      const attempts = updated?.failedLoginAttempts ?? 1;
+
+      if (attempts >= maxAttempts()) {
+        const lockUntil = new Date(now + lockMinutes() * 60 * 1000);
+        await User.updateOne({ _id: user._id }, { $set: { lockUntil, failedLoginAttempts: 0 } });
+        audit.record(req, { category: "auth", action: "account_locked", outcome: "denied", actor: user._id, role: user.role, actorLabel: login, detail: { after: attempts, lockMinutes: lockMinutes() } });
+        return lockedResponse(res, { lockUntil }, now);
+      }
+
+      audit.record(req, { category: "auth", action: "login_failed", outcome: "failure", actor: user._id, role: user.role, actorLabel: login, detail: { reason: "wrong_password", attempts } });
       return res.status(401).json({ message: "Invalid username/email or password" });
     }
+
+    // Right password: forget earlier failures and any lock that has run out.
+    if (user.failedLoginAttempts || user.lockUntil) {
+      await User.updateOne({ _id: user._id }, { $set: { failedLoginAttempts: 0, lockUntil: null } });
+    }
+    audit.record(req, { category: "auth", action: "login_success", outcome: "success", actor: user._id, role: user.role, actorLabel: login });
 
     const token = jwt.sign(
       { id: user._id, role: user.role },

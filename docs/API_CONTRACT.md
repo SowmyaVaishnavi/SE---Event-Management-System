@@ -155,7 +155,7 @@ Every response has a `Server-Timing: app;dur=<ms>` header. See `docs/PERFORMANCE
 | Endpoint | Body | Response |
 |----------|------|----------|
 | `POST /api/auth/register` | `{ name, email, password (8-72 chars), role: "Attendee" \| "Organizer", username? }` | `201 { message, user }`. `400` invalid, `409` email or username taken. |
-| `POST /api/auth/login` | `{ username, password }` or `{ email, password }` | `200 { message, token, user }`. `401` "Invalid username/email or password". |
+| `POST /api/auth/login` | `{ username, password }` or `{ email, password }` | `200 { message, token, user }`. `401` "Invalid username/email or password". `423` account locked (SR-005): `{ message, retryAfterSeconds }` and a `Retry-After` header. |
 | `GET /api/auth/me` | Bearer token | `200 { user }`, `401` if the token is missing or expired. |
 
 `user` is `{ id, name, email, username, role }`; the password hash is never returned. The JWT (`HS256`, 1 day) carries `{ id, role }`. Role checks: `401` not logged in, `403` "You do not have access to this action. It is for ... accounts only". An Admin passes every Organizer check.
@@ -198,3 +198,16 @@ Body `{ "qrCode": "EMS-7KQ2-M9XD-4TPA", "ticketId": "66f2..." }` (`ticketId` is 
 ### What the Developer must provide for booking to work (EMS-F-004..008)
 
 The Event schema needs `capacity` (Number), `date` (Date), `venue`, `price` (Number, default 0) and `status` (`published` / `cancelled`). Without them events do not show on the browse page, and capacity cannot be checked. `registeredCount` in `GET /api/events` should be the number of **confirmed** bookings: `Booking.countDocuments({ event, status: "confirmed" })`.
+
+## Account lockout and audit log (EMS-SR-005, EMS-NF-004)
+
+**Lockout.** After `LOGIN_MAX_ATTEMPTS` (default 5) wrong passwords in a row, the account is locked for `LOGIN_LOCK_MINUTES` (default 15). While locked, `POST /api/auth/login` answers `423 { message, retryAfterSeconds }` with a `Retry-After` header, even when the password is right. The lock ends by itself. A correct login before the limit resets the count. An email or username that does not exist always gets `401`.
+
+**Audit log (Admin only, read-only).** There is no endpoint to change or delete a log row. Rows are kept at least 2 years (docs/LOG_RETENTION.md).
+
+| Endpoint | Query | Response |
+|----------|-------|----------|
+| `GET /api/audit-logs` | `category` (`auth` / `event` / `booking` / `payment`), `action`, `outcome` (`success` / `failure` / `denied`), `actor` (user id), `from`, `to` (ISO date; a plain `to` date means that whole day), `archived=false` (leave out archived rows), `limit` (1-200, default 50), `before` (the `nextBefore` of the previous page) | `200 { logs: [ { id, at, category, action, outcome, actor, actorLabel, role, ip, target, detail, archived } ], nextBefore }`, newest first. `400 { message, errors }` for a bad filter. `401` / `403` not logged in / not an Admin. |
+| `GET /api/audit-logs/status` | none | `200 { recent, archived, oldest, retentionYears, archiveAfterDays, droppedWrites }` |
+
+Actions recorded: `register_success`, `register_rejected`, `login_success`, `login_failed`, `account_locked`, `login_blocked`, `access_denied` (category `auth`); `event_created`, `event_updated`, `event_cancelled` (`event`); `booking_held`, `booking_confirmed`, `booking_cancelled`, `checkin_success`, `checkin_refused` (`booking`); `payment_paid`, `payment_failed`, `payment_verification_failed`, `payment_paid_no_seat`, `payment_refunded` (`payment`). Passwords, tokens, ticket codes and card data are never written to the log.
