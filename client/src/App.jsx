@@ -7,6 +7,7 @@ import CheckIn from "./components/CheckIn.jsx";
 import MyEvents from "./components/MyEvents.jsx";
 import Alerts from "./components/Alerts.jsx";
 import AdminPayments from "./components/AdminPayments.jsx";
+import AuditLog from "./components/AuditLog.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -74,7 +75,7 @@ export default function App({ user, onLogout }) {
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"], ["mine", "My events"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
-          ...(user?.role === "Admin" ? [["payments", "Payments"]] : []),
+          ...(user?.role === "Admin" ? [["payments", "Payments"], ["audit", "Audit log"]] : []),
           ["alerts", "Alerts"],
         ].map(([key, label]) => (
           <button
@@ -96,6 +97,7 @@ export default function App({ user, onLogout }) {
         {view === "checkin" && <CheckIn />}
         {view === "alerts" && <Alerts />}
         {view === "payments" && <AdminPayments />}
+        {view === "audit" && <AuditLog />}
         {view === "browse" && (<>
         <EventFilters filters={filters} onChange={setFilters} onClear={() => setFilters(EMPTY_FILTERS)} />
 

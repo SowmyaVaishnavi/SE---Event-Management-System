@@ -16,6 +16,8 @@ const notificationRoutes = require("./routes/notifications");
 const paymentRoutes = require("./routes/payments");
 const { rejectCardData } = require("./lib/cardData");
 const healthRoutes = require("./routes/health");
+const auditLogRoutes = require("./routes/auditLogs");
+const { startArchiveSchedule } = require("./lib/auditLog");
 const { responseTiming } = require("./middleware/timing");
 const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
 
@@ -37,6 +39,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api", bookingRoutes);
 
 app.get("/", (req, res) => {
@@ -64,6 +67,9 @@ async function startServer() {
     console.log("MongoDB connected successfully");
 
     listen(app, { port: Number(PORT) });
+
+    // EMS-NF-004: move old audit-log rows to the archive every day (docs/LOG_RETENTION.md).
+    startArchiveSchedule();
   } catch (error) {
     console.error("Startup error:", error.message);
     process.exit(1);

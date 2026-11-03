@@ -2,6 +2,7 @@
 // SAD 4.3: POST /api/events -> 201 { eventId, status }. The full event is also returned for the UI.
 const Event = require("../models/Event");
 const { parseEventFields, publishProblems } = require("../lib/eventFields");
+const audit = require("../lib/auditLog");
 
 // Use: router.post("/", requireAuth, requireRole("Organizer"), createEvent);
 async function createEvent(req, res) {
@@ -28,6 +29,7 @@ async function createEvent(req, res) {
 
   try {
     const event = await Event.create({ ...data, organizer: req.user?.id });
+    audit.record(req, { category: "event", action: "event_created", target: `event:${event._id}`, detail: { title: event.title, status: event.status } });
     return res.status(201).json({ eventId: event._id, status: event.status, event: toView(event) });
   } catch (error) {
     if (error.name === "ValidationError") {
