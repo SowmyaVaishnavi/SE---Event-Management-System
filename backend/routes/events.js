@@ -9,6 +9,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 const { createEvent, toView } = require("./events.create");
 const { parseEventFields, publishProblems } = require("../lib/eventFields");
 const { notify } = require("../lib/notify");
+const audit = require("../lib/auditLog");
 
 const router = express.Router();
 
@@ -138,6 +139,7 @@ router.put("/:id", requireAuth, requireRole("Organizer"), async (req, res) => {
 
     event.set(data);
     await event.save();
+    audit.record(req, { category: "event", action: "event_updated", target: `event:${event._id}`, detail: { changed: Object.keys(data), status: event.status } });
     return res.json({ message: "Event updated", event: toView(event, booked) });
   } catch (error) {
     if (error.name === "ValidationError") return res.status(400).json({ message: error.message });
@@ -194,6 +196,8 @@ router.post("/:id/cancel", requireAuth, requireRole("Organizer"), async (req, re
         " Your ticket is no longer valid. If you paid, your refund will be processed and you will be told when it is done.",
       event: event._id,
     });
+
+    audit.record(req, { category: "event", action: "event_cancelled", target: `event:${event._id}`, detail: { bookingsCancelled: active.length, notified, hasReason: Boolean(reason) } });
 
     return res.json({
       status: "cancelled",

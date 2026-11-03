@@ -15,6 +15,7 @@ const User = require("../models/User");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { getGateway } = require("../lib/paymentGateway");
 const { notify } = require("../lib/notify");
+const audit = require("../lib/auditLog");
 
 const router = express.Router();
 const HOLD_MINUTES = 15;
@@ -191,6 +192,7 @@ router.post("/:id/confirm", requireAuth, async (req, res) => {
     if (gateway.name !== payment.provider) return res.status(409).json({ message: "This payment was started with a different gateway" });
     if (typeof paymentId !== "string" || typeof signature !== "string" ||
         !gateway.verifyPayment({ orderId: payment.providerOrderId, paymentId, signature })) {
+      audit.record(req, { category: "payment", action: "payment_verification_failed", outcome: "failure", target: `payment:${payment._id}`, detail: { provider: payment.provider } });
       return res.status(400).json({ message: "Payment could not be verified. Your booking is not confirmed." });
     }
 
@@ -207,6 +209,7 @@ router.post("/:id/confirm", requireAuth, async (req, res) => {
     if (!booking || booking.status !== "pending_payment" || event?.status === "cancelled") {
       payment.refundDue = true;
       await payment.save();
+      audit.record(req, { category: "payment", action: "payment_paid_no_seat", outcome: "failure", target: `payment:${payment._id}`, detail: { amountPaise: payment.amountPaise, refundDue: true } });
       return res.status(409).json({
         message: "Your seat hold ended before the payment arrived, so the booking is not confirmed. The payment will be refunded.",
         payment: paymentView(payment),
@@ -217,6 +220,7 @@ router.post("/:id/confirm", requireAuth, async (req, res) => {
     booking.status = "confirmed";
     booking.holdExpiresAt = null;
     await booking.save();
+    audit.record(req, { category: "payment", action: "payment_paid", target: `payment:${payment._id}`, detail: { amountPaise: payment.amountPaise, currency: payment.currency, provider: payment.provider, receiptNumber: payment.receiptNumber, bookingId: String(payment.booking) } });
 
     notify([payment.user], {
       type: "payment_received",
@@ -251,6 +255,7 @@ router.post("/:id/fail", requireAuth, async (req, res) => {
       { _id: payment.booking, status: "pending_payment" },
       { $set: { status: "cancelled", cancelledAt: new Date(), cancelReason: "payment_failed" } }
     );
+    audit.record(req, { category: "payment", action: "payment_failed", outcome: "failure", target: `payment:${payment._id}`, detail: { amountPaise: payment.amountPaise, provider: payment.provider } });
     res.json({ status: "failed", message: "Payment failed, so the booking was not confirmed and your seat was released. You can try booking again." });
   } catch (error) {
     console.error("Fail payment failed:", error.message);
@@ -335,6 +340,7 @@ router.post("/:id/refund", requireAuth, requireRole("Admin"), async (req, res) =
       event: payment.event,
     });
 
+    audit.record(req, { category: "payment", action: "payment_refunded", target: `payment:${payment._id}`, detail: { amountPaise: payment.amountPaise, provider: payment.provider, refundId: refund.refundId, receiptNumber: payment.receiptNumber } });
     res.json({ status: "refunded", message: "Refund completed and the attendee was told.", payment: paymentView(payment) });
   } catch (error) {
     console.error("Refund failed:", error.message);

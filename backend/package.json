@@ -10,10 +10,9 @@
     "audit:passwords": "node scripts/audit-passwords.js",
     "cert:dev": "node scripts/dev-cert.js",
     "audit:card-data": "node scripts/audit-card-data.js",
+    "logs:archive": "node scripts/archive-logs.js",
     "seed:perf": "node scripts/seed-perf.js",
-    "perf": "node scripts/perf.js",
-    "seed:demo": "node scripts/seed-demo.js",
-    "check:tls": "node scripts/check-tls.js"
+    "perf": "node scripts/perf.js"
   },
   "keywords": [],
   "author": "",
