@@ -1,15 +1,15 @@
-# Sprint 1 test cases (issue #35)
+﻿# EMS test cases — Sprint 1 baseline and Sprint 2 execution (issue #35)
 
 Project: Event Management System, Team 13. Test Plan: `Test_plan_EMS.md` (STP v1.0). Requirements: SRS v1.0, RTM in SRS section 8.
-Owner: Test Engineer. Last execution: **02-11-2026**, build = `main` plus the changes in this pull request.
+Owner: Test Engineer. Last execution: **06-11-2026**, branch = `dhanyashree-sprint2-qa` (updated from latest `main`).
 
 ## 1. How to run
 
-| What | Command | Result on 02-11-2026 |
+| What | Command | Result / latest evidence |
 |------|---------|----------------------|
-| Backend automated tests (Node test runner, in-memory database, no MongoDB needed) | `cd backend && npm ci && npm test` | **79 passed, 0 failed** |
-| Client automated tests (Vitest + Testing Library) | `cd client && npm ci && npm test` | **42 passed, 0 failed** |
-| Client production build | `cd client && npm run build` | built |
+| Backend automated tests (Node test runner, in-memory database, no MongoDB needed) | `npm --prefix backend test` | **78 passed, 0 failed, 1 skipped** |
+| Client automated tests (Vitest + Testing Library) | `npm --prefix client test` | **52 passed, 0 failed** |
+| Client production build | `npm --prefix client run build` | Not re-run on 06-11-2026 |
 | Same checks on every push and pull request | GitHub Actions workflow `CI` (`.github/workflows/ci.yml`) | runs on push |
 | Database audits (need a running MongoDB) | `npm run audit:passwords`, `npm run audit:card-data` | Manual, see TC-Sec-02 and TC-Sec-03 |
 
@@ -32,7 +32,7 @@ Status legend: **Pass (auto)** = automated test exists and passed in the run abo
 | Usability (NF-005) | 1 | 0 | 1 | 0 |
 | **Total** | **32** | **23** | **4** | **5** |
 
-TC-Sec-01 (TLS) is counted under Manual: its automated part passes, the traffic scan of a deployed system is still to do. TC-Sec-02 and TC-Sec-03 are counted as Pass (auto); the one-time database audit on the demo database is listed in section 5.
+TC-Sec-01 (TLS) is counted under Manual: its automated test was skipped because OpenSSL was unavailable, and a traffic scan of a deployed system is still to do. TC-Sec-02 and TC-Sec-03 are counted as Pass (auto); the one-time database audit on the demo database is listed in section 5.
 
 ## 3. Test cases
 
@@ -104,7 +104,7 @@ Priority follows the SRS. "Automated in" lists the files that hold the checks.
 
 | ID | Found in | Description | Status |
 |----|----------|-------------|--------|
-| - | - | No defects raised by the automated run on 02-11-2026. | - |
+| - | - | No new defects recorded during the automated test execution on 06-11-2026. Unimplemented features and pending manual validations are tracked in the test case statuses. | - |
 
 Add one row per defect found during manual execution (what, where, steps, severity, who fixes).
 
@@ -117,3 +117,8 @@ Add one row per defect found during manual execution (what, where, steps, severi
 |      | TC-Sec-03 (DB audit) |  |                    |                             |       |
 |      | TC-Perf-01 / 02 (staging) | |                  |                             |       |
 |      | TC-UX-01 |        |                      |                             |       |
+
+
+
+
+
