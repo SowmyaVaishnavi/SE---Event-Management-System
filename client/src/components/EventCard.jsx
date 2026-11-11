@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { bookEvent } from "../api/bookings.js";
 import { seatsLeft } from "../lib/filterEvents.js";
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", {
@@ -15,10 +16,28 @@ function formatPrice(price) {
 }
 
 /** One event in the browse list (EMS-F-008). */
-export default function EventCard({ event }) {
+export default function EventCard({ event, user, onBooked }) {
+  const [booking, setBooking] = useState({ state: "idle", message: "" });
   const start = new Date(event.date);
   const left = seatsLeft(event);
   const full = left === 0;
+  const canBook = user?.role === "Attendee";
+
+  async function handleBook() {
+    setBooking({ state: "saving", message: "" });
+    try {
+      const result = await bookEvent(event.eventId);
+      setBooking({
+        state: "done",
+        message: result?.status === "pending_payment"
+          ? "Seat held. Pay under My tickets to confirm your booking."
+          : "Booked! Your ticket is under My tickets.",
+      });
+      onBooked?.(result);
+    } catch (err) {
+      setBooking({ state: "error", message: err.message });
+    }
+  }
 
   return (
     <li className="card">
@@ -28,7 +47,7 @@ export default function EventCard({ event }) {
           <span className={`price ${event.price ? "" : "free"}`}>{formatPrice(event.price)}</span>
         </div>
 
-        <h3 id={`title-${event.eventId}`}>{event.title}</h3>
+        <h2 id={`title-${event.eventId}`}>{event.title}</h2>
         {event.description && <p className="desc">{event.description}</p>}
 
         <dl className="meta">
@@ -53,6 +72,27 @@ export default function EventCard({ event }) {
             </div>
           )}
         </dl>
+
+        {canBook && (
+          <div className="book">
+            <button
+              type="button"
+              className="btn"
+              onClick={handleBook}
+              disabled={full || booking.state === "saving" || booking.state === "done"}
+              aria-describedby={`book-msg-${event.eventId}`}
+            >
+              {booking.state === "saving" ? "Booking..." : booking.state === "done" ? "Booked" : full ? "Event full" : "Book a spot"}
+            </button>
+            <p
+              id={`book-msg-${event.eventId}`}
+              className={`message ${booking.state === "error" ? "error" : ""}`}
+              role={booking.state === "error" ? "alert" : "status"}
+            >
+              {booking.message}
+            </p>
+          </div>
+        )}
       </article>
     </li>
   );

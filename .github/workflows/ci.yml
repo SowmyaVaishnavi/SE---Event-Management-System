@@ -1,0 +1,80 @@
+# EMS CI (issue #34): runs on every push to main and every pull request into main.
+# Backend: node --test (no MongoDB needed, the tests use in-memory stand-ins).
+# Client:  vitest + production build.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+        env:
+          JWT_SECRET: ci-only-secret
+
+  client:
+    name: Client tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  # Reports known vulnerabilities in runtime dependencies. Shown as a warning, it does not block a merge
+  # (a new advisory in a library should not stop an unrelated pull request).
+  dependency-audit:
+    name: Dependency audit (warning only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    strategy:
+      matrix:
+        dir: [backend, client]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm audit
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --omit=dev --audit-level=high

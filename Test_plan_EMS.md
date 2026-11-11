@@ -13,7 +13,7 @@
 
 **Scope:** Testing covers EMS features such as authentication, event creation and management, event search, booking and ticketing, payments and refunds, notifications, check-in, and reporting. Hardware devices (attendee phones/tablets used for scanning) and third-party provider internals are excluded.
 
-**References:** EMS SRS v1.0, EMS Software Architecture & Design Specification v1.0, WCAG 2.1 AA, PCI-DSS guidelines.
+**References:** EMS SRS v1.0, EMS Software Architecture & Design Specification v1.0, docs/Security_Validation_Report.md (security results for EMS-NF-003 and EMS-SR-004), WCAG 2.1 AA, PCI-DSS guidelines.
 
 **Definitions:** EMS (Event Management System), QR (Quick Response code), SRS (Software Requirements Specification), RTM (Requirements Traceability Matrix), RBAC (Role-Based Access Control).
 
@@ -40,8 +40,8 @@ Features mapped to SRS requirement IDs:
 - EMS-F-016..018: Booking, reminder, and cancellation notifications
 - EMS-F-019..020: Ticket scanning and check-in
 - EMS-F-021..023: Registrations list, export, and analytics
-- EMS-NF-001..005: Performance, reliability, security/compliance, accessibility, scalability
-- EMS-SR-001..005: TLS, password hashing, RBAC, signed QR tickets, tokenised payment data
+- EMS-NF-001..005: Performance, reliability, security/compliance, audit/data retention, accessibility
+- EMS-SR-001..005: TLS 1.2+, password hashing (bcrypt), no raw payment card data, role-based access control, account lockout and authentication audit logging
 
 ## 4. Features Not to be Tested
 
@@ -71,11 +71,12 @@ Features mapped to SRS requirement IDs:
 
 ### 5.1 Security Validation
 
-- Validate password handling (hashing, no plaintext storage or logging)
-- TLS 1.2+ verification on all client-server and service-to-service calls
-- RBAC checks: confirm each role can only reach its permitted endpoints
-- QR ticket forgery/replay testing (signed, single-use validation)
-- PCI-DSS-aligned checks on payment flow (no raw card data on EMS servers)
+- Validate password handling (hashing, no plaintext storage or logging): EMS-NF-003, EMS-SR-002 (TC-Sec-01, TC-Sec-02)
+- TLS 1.2+ verification on all client-server and service-to-service calls: EMS-NF-003, EMS-SR-001 (TC-Sec-01)
+- RBAC checks: confirm each role can only reach its permitted endpoints: EMS-SR-004 (TC-Sec-04)
+- Account lockout and authentication event logging: EMS-SR-005 (TC-Sec-05)
+- PCI-DSS-aligned checks on payment flow (no raw card data on EMS servers): EMS-SR-003 (TC-Sec-03)
+- QR ticket forgery/replay testing (signed, single-use validation): per SAD 3.7; no SRS requirement ID yet
 - Fuzzing for input fields (registration forms, event forms, payment forms)
 
 ## 6. Test Environment
@@ -154,7 +155,9 @@ Representative examples:
 - EMS-F-013 (Take payment) → TC-Pay-01
 - EMS-F-019 (Scan ticket / check-in) → TC-Checkin-01
 - EMS-NF-001 (Response time) → TC-Perf-01
-- EMS-SR-004 (Signed single-use QR) → TC-Sec-05
+- EMS-NF-003 (HTTPS, no plaintext passwords) → TC-Sec-01
+- EMS-SR-004 (Role-based access control) → TC-Sec-04
+- EMS-SR-005 (Account lockout, auth audit logging) → TC-Sec-05
 
 ## 14. Test Metrics & Reporting
 
