@@ -81,6 +81,50 @@ router.get("/mine", requireAuth, requireRole("Organizer"), async (req, res) => {
   }
 });
 
+// EMS-F-021: View the current confirmed registrations for an event.
+router.get("/:id/registrations", requireAuth, requireRole("Organizer"), async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(404).json({ message: "Event not found" });
+  }
+
+  try {
+    const event = await Event.findById(id).lean();
+
+    if (!event || event.status === "draft") {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    if (req.user.role !== "Admin" && String(event.organizer) !== String(req.user.id)) {
+      return res.status(403).json({ message: "You can only view registrations for your own events" });
+    }
+
+    const bookings = await Booking.find({
+      event: event._id,
+      status: "confirmed"
+    })
+      .populate("user", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      eventId: String(event._id),
+      eventTitle: event.title,
+      totalRegistrations: bookings.length,
+      registrations: bookings.map((booking) => ({
+        registrationId: String(booking._id),
+        attendeeName: booking.user?.name || "Unknown attendee",
+        attendeeEmail: booking.user?.email || "",
+        bookedAt: booking.createdAt,
+        checkedIn: Boolean(booking.checkedInAt)
+      }))
+    });
+  } catch (error) {
+    console.error("Get event registrations failed:", error);
+    return res.status(500).json({ message: "Could not load event registrations." });
+  }
+});
 // GET /api/events/:id - one event (used by booking). Drafts are not public.
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
