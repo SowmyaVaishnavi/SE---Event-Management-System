@@ -7,6 +7,8 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const Event = require("../models/Event");
 const Booking = require("../models/Booking");
+const Notification = require("../models/Notification");
+const User = require("../models/User");
 const bookingRoutes = require("../routes/bookings");
 
 const oid = (n) => String(n).padStart(24, "0");
@@ -39,6 +41,9 @@ test.beforeEach(() => {
   Booking.find = (f) => q(bookings.filter((b) => matches(b, f)));
   Booking.countDocuments = async (f) => bookings.filter((b) => matches(b, f)).length;
   Booking.create = async (data) => makeDoc(data);
+  Notification.insertMany = async (docs) => docs; // booking confirmation alerts (EMS-F-016) need no database here
+  User.find = () => q([]);
+  Notification.updateOne = async () => ({ matchedCount: 1 });
 });
 
 async function call(method, path, { user, body } = {}) {
