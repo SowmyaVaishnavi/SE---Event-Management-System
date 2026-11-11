@@ -7,12 +7,18 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const Event = require("../models/Event");
 const Booking = require("../models/Booking");
+const Payment = require("../models/Payment");
 const eventRoutes = require("../routes/events");
 const { parseEventFields, publishProblems } = require("../lib/eventFields");
 
 const oid = (n) => String(n).padStart(24, "0");
 const inDays = (d) => new Date(Date.now() + d * 864e5);
-const q = (value) => ({ lean: () => q(value), sort: () => q(value), then: (a, b) => Promise.resolve(value).then(a, b) });
+const q = (value) => ({
+  lean: () => q(value),
+  sort: () => q(value),
+  select: () => q(value),
+  then: (a, b) => Promise.resolve(value).then(a, b),
+});
 
 let lastFind, created;
 test.beforeEach(() => {
@@ -22,6 +28,7 @@ test.beforeEach(() => {
   Event.findById = (id) => q(id === oid(1) ? { _id: oid(1), title: "Tech Talk", status: "published" } : id === oid(2) ? { _id: oid(2), status: "draft" } : null);
   Event.create = async (data) => { const doc = { _id: oid(50), ...data }; created.push(doc); return doc; };
   Booking.aggregate = async () => [{ _id: oid(1), n: 3 }];
+  Payment.aggregate = async () => [];
 });
 
 async function call(method, path, { user, body } = {}) {
@@ -300,4 +307,96 @@ test("EMS-F-021: draft, missing and invalid events have no registration list", a
     (await call("GET", "/not-an-id/registrations", { user: organizer })).status,
     404
   );
+});
+
+test("EMS-F-023: organizer sees correct booking, attendance and revenue analytics", async () => {
+  const events = [
+    { _id: oid(7), title: "Tech Talk", status: "published" },
+    { _id: oid(8), title: "Workshop", status: "published" }
+  ];
+
+  let eventFilter;
+  Event.find = (filter) => {
+    eventFilter = filter;
+    return q(events);
+  };
+
+  Booking.aggregate = async () => [
+    { _id: oid(7), bookings: 3, attendance: 2 },
+    { _id: oid(8), bookings: 2, attendance: 1 }
+  ];
+
+  Payment.aggregate = async () => [
+    { _id: oid(7), revenuePaise: 150000 },
+    { _id: oid(8), revenuePaise: 50000 }
+  ];
+
+  const res = await call("GET", "/analytics", { user: organizer });
+
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(eventFilter, { organizer: organizer.id });
+  assert.strictEqual(res.body.totalBookings, 5);
+  assert.strictEqual(res.body.totalAttendance, 3);
+  assert.strictEqual(res.body.totalRevenue, 2000);
+  assert.strictEqual(res.body.events.length, 2);
+  assert.strictEqual(res.body.events[0].totalRevenue, 1500);
+});
+
+test("EMS-F-023: Admin can view analytics for all events", async () => {
+  let eventFilter;
+
+  Event.find = (filter) => {
+    eventFilter = filter;
+    return q([{ _id: oid(7), title: "Tech Talk", status: "published" }]);
+  };
+
+  Booking.aggregate = async () => [
+    { _id: oid(7), bookings: 4, attendance: 3 }
+  ];
+
+  Payment.aggregate = async () => [
+    { _id: oid(7), revenuePaise: 100000 }
+  ];
+
+  const admin = { id: oid(30), role: "Admin" };
+  const res = await call("GET", "/analytics", { user: admin });
+
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(eventFilter, {});
+  assert.strictEqual(res.body.totalBookings, 4);
+  assert.strictEqual(res.body.totalAttendance, 3);
+  assert.strictEqual(res.body.totalRevenue, 1000);
+});
+
+test("EMS-F-023: empty analytics and unauthorized access are handled", async () => {
+  let aggregateCalled = false;
+
+  Event.find = () => q([]);
+
+  Booking.aggregate = async () => {
+    aggregateCalled = true;
+    return [];
+  };
+
+  Payment.aggregate = async () => {
+    aggregateCalled = true;
+    return [];
+  };
+
+  const res = await call("GET", "/analytics", { user: organizer });
+
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(res.body, {
+    totalBookings: 0,
+    totalRevenue: 0,
+    totalAttendance: 0,
+    events: []
+  });
+  assert.strictEqual(aggregateCalled, false);
+
+  const denied = await call("GET", "/analytics", { user: attendee });
+  assert.strictEqual(denied.status, 403);
+
+  const anonymous = await call("GET", "/analytics");
+  assert.strictEqual(anonymous.status, 401);
 });

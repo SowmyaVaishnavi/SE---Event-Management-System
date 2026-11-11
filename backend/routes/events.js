@@ -81,6 +81,95 @@ router.get("/mine", requireAuth, requireRole("Organizer"), async (req, res) => {
   }
 });
 
+// EMS-F-023: Basic analytics for the organizer's events (Admin: all events).
+router.get("/analytics", requireAuth, requireRole("Organizer"), async (req, res) => {
+  try {
+    const eventFilter = req.user.role === "Admin"
+      ? {}
+      : { organizer: req.user.id };
+
+    const events = await Event.find(eventFilter).select("_id title status").lean();
+    const eventIds = events.map((event) => event._id);
+
+    if (!eventIds.length) {
+      return res.json({
+        totalBookings: 0,
+        totalRevenue: 0,
+        totalAttendance: 0,
+        events: [],
+      });
+    }
+
+    const [bookingStats, paymentStats] = await Promise.all([
+      Booking.aggregate([
+        {
+          $match: {
+            event: { $in: eventIds },
+            status: "confirmed",
+          },
+        },
+        {
+          $group: {
+            _id: "$event",
+            bookings: { $sum: 1 },
+            attendance: {
+              $sum: {
+                $cond: [{ $ne: ["$checkedInAt", null] }, 1, 0],
+              },
+            },
+          },
+        },
+      ]),
+      Payment.aggregate([
+        {
+          $match: {
+            event: { $in: eventIds },
+            status: "paid",
+            refundDue: false,
+          },
+        },
+        {
+          $group: {
+            _id: "$event",
+            revenuePaise: { $sum: "$amountPaise" },
+          },
+        },
+      ]),
+    ]);
+
+    const bookingMap = new Map(
+      bookingStats.map((row) => [String(row._id), row])
+    );
+    const paymentMap = new Map(
+      paymentStats.map((row) => [String(row._id), row])
+    );
+
+    const analytics = events.map((event) => {
+      const bookings = bookingMap.get(String(event._id));
+      const payment = paymentMap.get(String(event._id));
+
+      return {
+        eventId: String(event._id),
+        title: event.title,
+        status: event.status,
+        totalBookings: bookings?.bookings ?? 0,
+        totalAttendance: bookings?.attendance ?? 0,
+        totalRevenue: (payment?.revenuePaise ?? 0) / 100,
+      };
+    });
+
+    return res.json({
+      totalBookings: analytics.reduce((sum, event) => sum + event.totalBookings, 0),
+      totalRevenue: analytics.reduce((sum, event) => sum + event.totalRevenue, 0),
+      totalAttendance: analytics.reduce((sum, event) => sum + event.totalAttendance, 0),
+      events: analytics,
+    });
+  } catch (error) {
+    console.error("Get event analytics failed:", error);
+    return res.status(500).json({ message: "Could not load event analytics." });
+  }
+});
+
 // EMS-F-021: View the current confirmed registrations for an event.
 router.get("/:id/registrations", requireAuth, requireRole("Organizer"), async (req, res) => {
   const { id } = req.params;
