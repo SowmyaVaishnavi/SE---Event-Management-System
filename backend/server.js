@@ -5,6 +5,10 @@ require("dotenv").config({
     path: path.join(__dirname, ".env")
 });
 
+const { startReminderSchedule } = require("./lib/reminders");
+// ...
+startReminderSchedule();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
