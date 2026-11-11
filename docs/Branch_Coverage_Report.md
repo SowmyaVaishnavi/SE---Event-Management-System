@@ -1,4 +1,4 @@
-﻿# Branch Coverage Report
+# Branch Coverage Report
 
 **Project:** Event Management System (EMS)
 **Team:** 13
@@ -56,7 +56,7 @@ Examples of module-level branch coverage:
 
 ## 4. Frontend Branch Coverage
 
-**Overall frontend branch coverage: 70.16%**
+**Overall frontend branch coverage: 70.27%**
 
 Examples of module-level branch coverage:
 
@@ -100,7 +100,7 @@ Examples of module-level branch coverage:
 | Component | Branch coverage |
 |---|---:|
 | Backend | 82.82% |
-| Frontend | 70.16% |
+| Frontend | 70.27% |
 
 The backend and frontend values are reported separately. They are not combined into a single percentage.
 
@@ -115,7 +115,7 @@ The backend and frontend values are reported separately. They are not combined i
 
 ## 7. Conclusion
 
-The backend achieved 82.82% branch coverage, while the frontend achieved 70.16%.
+The backend achieved 82.82% branch coverage, while the frontend achieved 70.27%.
 
 The results show that the automated tests exercise many decision paths, particularly in authentication and several core components. However, additional testing is recommended for API error handling, registration, payment and event-related conditional behaviour.
 
@@ -124,3 +124,4 @@ The results show that the automated tests exercise many decision paths, particul
 **Prepared by:**  
 Dhanyashree K. M.  
 PES2UG24CS156
+
