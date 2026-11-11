@@ -24,6 +24,7 @@ const auditLogRoutes = require("./routes/auditLogs");
 const { startArchiveSchedule } = require("./lib/auditLog");
 const { responseTiming } = require("./middleware/timing");
 const { httpsOnly, startServer: listen, truthy } = require("./lib/tls");
+const { errorHandler } = require("./lib/errorHandler");
 
 const app = express();
 
@@ -51,6 +52,9 @@ app.get("/", (req, res) => {
     message: "Event Management System API running"
   });
 });
+
+// EMS-NF-003: must come after every route. Safe JSON errors, no stack traces, no request bodies in logs.
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
