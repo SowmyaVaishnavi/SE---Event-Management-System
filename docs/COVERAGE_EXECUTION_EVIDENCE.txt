@@ -1,0 +1,28 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261111055042
+Username: DESKTOP-0PI32PA\Akkshay SN
+RunAs User: DESKTOP-0PI32PA\Akkshay SN
+Configuration Name: 
+Machine: DESKTOP-0PI32PA (Microsoft Windows NT 10.0.26300.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 20888
+PSVersion: 5.1.26100.9818
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9818
+BuildVersion: 10.0.26100.9818
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is .\docs\COVERAGE_EXECUTION_EVIDENCE.txt
+[Dhanyashree - PES2UG24CS156]> npm --prefix backend test -- --experimental-test-coverage
+
+[Dhanyashree - PES2UG24CS156]> npm --prefix client test -- --coverage
+
+[Dhanyashree - PES2UG24CS156]> Stop-Transcript
+**********************
+Windows PowerShell transcript end
+End time: 20261111055253
+**********************
