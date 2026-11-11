@@ -24,6 +24,55 @@ function formatDate(iso) {
     : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+function exportRegistrationsToCsv(registrations, eventTitle) {
+  const headers = [
+    "Attendee Name",
+    "Email",
+    "Booking Date",
+    "Check-in Status",
+  ];
+
+  const escapeCsv = (value) => {
+    let text = String(value ?? "");
+
+    // Prevent spreadsheet formula injection.
+    if (/^[=+\-@\t\r]/.test(text)) {
+      text = `'${text}`;
+    }
+
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const rows = registrations.map((r) => [
+    r.attendeeName,
+    r.attendeeEmail,
+    r.bookedAt,
+    r.checkedIn ? "Checked in" : "Not checked in",
+  ]);
+
+  const csv = [
+    headers,
+    ...rows,
+  ]
+    .map((row) => row.map(escapeCsv).join(","))
+    .join("\r\n");
+
+  const blob = new Blob(["\uFEFF", csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `${eventTitle.replace(/[^a-z0-9_-]/gi, "_")}_attendees.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
 export default function MyEvents({ user, onChanged }) {
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("loading");
@@ -165,6 +214,14 @@ export default function MyEvents({ user, onChanged }) {
                 {selectedEvent === id && (
                   <div className="registrations" aria-label={`Registrations for ${e.title}`}>
                     <h4>Registrations</h4>
+                    {registrationStatus === "ready" && (
+  <button
+    type="button"
+   onClick={() => exportRegistrationsToCsv(registrations, e.title)}
+  >
+    Download CSV
+  </button>
+)}
                     <button type="button" className="btn btn-secondary" onClick={() => { setSelectedEvent(null); setRegistrations([]); }}>
                       Close registrations
                     </button>
@@ -215,3 +272,6 @@ export default function MyEvents({ user, onChanged }) {
     </section>
   );
 }
+
+
+
