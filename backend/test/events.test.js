@@ -183,3 +183,121 @@ test("GET /mine lists only the organizer's events", async () => {
   assert.deepStrictEqual(lastFind, {});
   assert.strictEqual((await call("GET", "/mine", { user: attendee })).status, 403);
 });
+
+// ---- EMS-F-021: View event registrations ----
+test("EMS-F-021: organizer can view confirmed registrations for their event", async () => {
+  const event = {
+    _id: oid(7),
+    title: "Tech Talk",
+    status: "published",
+    organizer: organizer.id
+  };
+
+  const bookings = [
+    {
+      _id: oid(101),
+      user: { name: "Test Attendee", email: "attendee@test.com" },
+      createdAt: new Date("2026-11-10T10:00:00Z"),
+      checkedInAt: null
+    },
+    {
+      _id: oid(102),
+      user: { name: "Second Attendee", email: "second@test.com" },
+      createdAt: new Date("2026-11-10T11:00:00Z"),
+      checkedInAt: new Date("2026-11-10T12:00:00Z")
+    }
+  ];
+
+  let bookingFilter;
+  Event.findById = () => q(event);
+
+  Booking.find = (filter) => {
+    bookingFilter = filter;
+    const chain = {
+      populate() { return this; },
+      sort() { return this; },
+      lean() { return this; },
+      then(resolve, reject) {
+        return Promise.resolve(bookings).then(resolve, reject);
+      }
+    };
+    return chain;
+  };
+
+  const res = await call("GET", `/${oid(7)}/registrations`, { user: organizer });
+
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.eventTitle, "Tech Talk");
+  assert.strictEqual(res.body.totalRegistrations, 2);
+  assert.strictEqual(res.body.registrations[0].attendeeName, "Test Attendee");
+  assert.strictEqual(res.body.registrations[0].attendeeEmail, "attendee@test.com");
+  assert.strictEqual(res.body.registrations[0].checkedIn, false);
+  assert.strictEqual(res.body.registrations[1].checkedIn, true);
+  assert.deepStrictEqual(bookingFilter, {
+    event: oid(7),
+    status: "confirmed"
+  });
+});
+
+test("EMS-F-021: only the event owner or Admin can view registrations", async () => {
+  Event.findById = () => q({
+    _id: oid(7),
+    title: "Tech Talk",
+    status: "published",
+    organizer: organizer.id
+  });
+
+  const chain = {
+    populate() { return this; },
+    sort() { return this; },
+    lean() { return this; },
+    then(resolve, reject) { return Promise.resolve([]).then(resolve, reject); }
+  };
+  Booking.find = () => chain;
+
+  const otherOrganizer = { id: oid(22), role: "Organizer" };
+  const admin = { id: oid(30), role: "Admin" };
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(7)}/registrations`, { user: otherOrganizer })).status,
+    403
+  );
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(7)}/registrations`, { user: attendee })).status,
+    403
+  );
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(7)}/registrations`, { user: admin })).status,
+    200
+  );
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(7)}/registrations`)).status,
+    401
+  );
+});
+
+test("EMS-F-021: draft, missing and invalid events have no registration list", async () => {
+  Event.findById = (id) => q(
+    id === oid(2)
+      ? { _id: oid(2), title: "Draft Event", status: "draft", organizer: organizer.id }
+      : null
+  );
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(2)}/registrations`, { user: organizer })).status,
+    404
+  );
+
+  assert.strictEqual(
+    (await call("GET", `/${oid(9)}/registrations`, { user: organizer })).status,
+    404
+  );
+
+  assert.strictEqual(
+    (await call("GET", "/not-an-id/registrations", { user: organizer })).status,
+    404
+  );
+});
