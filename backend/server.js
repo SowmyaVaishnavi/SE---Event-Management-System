@@ -1,4 +1,3 @@
-
 const path = require("path");
 
 require("dotenv").config({
@@ -60,17 +59,28 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+
+    // Dev convenience: a missing .env no longer stops the API from starting.
     if (!process.env.MONGO_URI) {
-      throw new Error("MONGO_URI is missing from .env");
+      if (isProd) throw new Error("MONGO_URI is missing from .env");
+      process.env.MONGO_URI = "mongodb://localhost:27017/ems";
+      console.warn("MONGO_URI not set, using mongodb://localhost:27017/ems");
     }
 
     if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is missing from .env");
+      if (isProd) throw new Error("JWT_SECRET is missing from .env");
+      process.env.JWT_SECRET = require("crypto").randomBytes(48).toString("hex");
+      console.warn("JWT_SECRET not set, using a temporary one (logins reset on restart). Set it in backend/.env.");
     }
 
     // For a remote database use a TLS connection string (Atlas "mongodb+srv://" is TLS by default,
     // or add "?tls=true"). See docs/TLS.md.
-    await mongoose.connect(process.env.MONGO_URI);
+    try {
+      await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+    } catch (dbError) {
+      throw new Error(`Cannot reach MongoDB at ${process.env.MONGO_URI}. Start MongoDB (Windows: run "net start MongoDB" as admin, or check Services) or set MONGO_URI to an Atlas URI in backend/.env. (${dbError.message})`);
+    }
 
     console.log("MongoDB connected successfully");
 
