@@ -8,6 +8,7 @@ import MyEvents from "./components/MyEvents.jsx";
 import Alerts from "./components/Alerts.jsx";
 import AdminPayments from "./components/AdminPayments.jsx";
 import AuditLog from "./components/AuditLog.jsx";
+import Analytics from "./components/Analytics.jsx";
 import { useEvents } from "./hooks/useEvents.js";
 import { hasActiveFilters } from "./lib/filterEvents.js";
 
@@ -18,6 +19,7 @@ const VIEW_TITLES = {
   mine: "My events",
   tickets: "My tickets",
   checkin: "Event check-in",
+  analytics: "Event analytics",
 };
 
 export default function App({ user, onLogout }) {
@@ -74,7 +76,7 @@ export default function App({ user, onLogout }) {
           ["browse", "Browse events"],
           ...(user?.role === "Organizer" || user?.role === "Admin" ? [["create", "Create event"], ["mine", "My events"]] : []),
           ...(user?.role === "Attendee" ? [["tickets", "My tickets"]] : []),
-          ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"]] : []),
+          ...(user?.role === "Organizer" || user?.role === "Admin" ? [["checkin", "Check-in"], ["analytics", "Analytics"]] : []),
           ...(user?.role === "Admin" ? [["payments", "Payments"], ["audit", "Audit log"]] : []),
           ["alerts", "Alerts"],
         ].map(([key, label]) => (
@@ -95,6 +97,7 @@ export default function App({ user, onLogout }) {
         {view === "mine" && <MyEvents user={user} onChanged={retry} />}
         {view === "tickets" && <MyTickets user={user} />}
         {view === "checkin" && <CheckIn />}
+        {view === "analytics" && <Analytics />}
         {view === "alerts" && <Alerts />}
         {view === "payments" && <AdminPayments />}
         {view === "audit" && <AuditLog />}
