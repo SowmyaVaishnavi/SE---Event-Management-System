@@ -95,6 +95,7 @@ test("TC-Pay-01: a paid booking waits for payment, then is confirmed once the pa
   assert.strictEqual(db.bookings[0].status, "confirmed");
   assert.strictEqual(db.payments[0].status, "paid");
   assert.ok(db.notes.some((n) => n.type === "payment_received" && String(n.user) === asha.id));
+  assert.ok(db.notes.some((n) => n.type === "booking_confirmed" && String(n.user) === asha.id)); // EMS-F-016
 
   // Retrying the same confirm is safe.
   const again = await call("POST", `/payments/${paymentId}/confirm`, { user: asha, body: { paymentId: gw.body.paymentId, signature: gw.body.signature } });
