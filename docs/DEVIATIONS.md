@@ -1,6 +1,6 @@
 # DEVIATIONS.md - Event Management System (Team 13)
 
-Owner: Product Owner. Covers differences between the submitted documents (SRS v1.0 05-09-2026, SAD v1.0 14-09-2026, Test Plan v1.0 14-09-2026) and what is built after Sprint 1, Sprint 2 and the Part 3 testing (2-6 Nov 2026). Last updated 10-11-2026. To be explained during the final demo.
+Owner: Product Owner. Covers differences between the submitted documents (SRS v1.0 05-09-2026, SAD v1.0 14-09-2026, Test Plan v1.0 14-09-2026) and what is built after Sprint 1, Sprint 2 and the Part 3 testing (2-6 Nov 2026). Last updated 10-11-2026.
 
 Status key: **Open** = decision needed from the team, **Resolved** = decision recorded, **Build** = a change made while implementing.
 
@@ -64,7 +64,7 @@ Add one row for anything that was built differently from the SRS / SAD / Test Pl
 | D-42 | Audit log and 2-year retention (SR-005, NF-004) | New `AuditLog` model, written by auth, event, booking, check-in and payment routes. Rows are kept **2 calendar years** from the day they are written (`retainUntil`, `LOG_RETENTION_YEARS`, never below 2) and are removed only by MongoDB's TTL index after that date. Rows older than 90 days are moved to an archive collection every day and stay searchable by an Admin. Writes are fire-and-forget: if the database is down a row is dropped (counted in `droppedWrites`), so logging never breaks a booking or login. See docs/LOG_RETENTION.md. | SRS says "event and transaction logs for a minimum of 2 years" and "log all authentication events" without defining the format. A database collection is the simplest store that works on any host (a file archive is lost on hosts with a temporary disk). | Product Owner |
 | D-43 | Test tool for TC-OPS-01 | TC-OPS-01 ("automated archival and retrieval verified") is checked by `backend/test/auditLog.test.js` and `auditHooks.test.js` against in-memory collections. A run against the real MongoDB TTL index (the deletion after 2 years) cannot be shown in a demo and is covered by the schema setting only. | A 2-year wait cannot be tested. The test checks the date stored on every row (`retainUntil >= 730 days`) instead. | Product Owner |
 
-## D. Found during Sprint 2 and Part 3 testing (2-6 Nov 2026)
+## D. Found during Sprint 2 and Part 3 testing 
 
 Sources: System Validation Report, Unit Test Report, Code Coverage Report and Branch Coverage Report in `docs/`, and a re-check of the SRS against the code.
 
@@ -102,7 +102,7 @@ Sources: System Validation Report, Unit Test Report, Code Coverage Report and Br
 | NF-003 HTTPS, no plaintext passwords | Built; at-rest encryption left to the host | D-28, D-30, D-48 |
 | NF-004 2-year log retention | Built, TTL deletion cannot be demoed | D-42, D-43 |
 | NF-005 Accessibility | Built and automated checks pass; manual checks pending | D-12, D-52 |
-| SR-001 TLS 1.2+ | Built; deployed scan pending | D-30, D-51 |
+| SR-001 TLS 1.2+ | Built; deployed scan pending | D-30, D-51 |1
 | SR-002 bcrypt | Built and tested; live DB audit pending | D-28, D-52 |
 | SR-003 No card data | Built and tested; live DB audit pending | D-37, D-52 |
 | SR-004 RBAC | Built and tested | D-27 |

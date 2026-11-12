@@ -10,6 +10,7 @@ const Payment = require("../models/Payment");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { startPayment, expireStaleHolds, paymentView, HOLD_MINUTES } = require("./payments");
 const audit = require("../lib/auditLog");
+const { notify } = require("../lib/notify");
 
 const router = express.Router();
 
@@ -102,6 +103,13 @@ router.post("/events/:id/register", requireAuth, requireRole("Attendee"), async 
 
     const booking = await Booking.create({ user: req.user.id, event: id });
     audit.record(req, { category: "booking", action: "booking_confirmed", target: `booking:${booking._id}`, detail: { eventId: String(id) } });
+    // EMS-F-016: confirmation alert (in-app + email) right after a free booking.
+    notify([req.user.id], {
+      type: "booking_confirmed",
+      title: `Booking confirmed: ${event.title}`,
+      message: `You're booked for "${event.title}"${event.date ? ` on ${new Date(event.date).toUTCString()}` : ""}. Your ticket is under My tickets.`,
+      event: event._id,
+    });
     return res.status(201).json({
       status: "confirmed",
       ticketId: booking._id,
