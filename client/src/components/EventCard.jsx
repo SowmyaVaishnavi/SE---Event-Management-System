@@ -40,7 +40,7 @@ export default function EventCard({ event, user, onBooked }) {
   }
 
   return (
-    <li className="card">
+    <li className="card" data-category={event.category}>
       <article aria-labelledby={`title-${event.eventId}`}>
         <div className="card-top">
           <span className="chip">{event.category}</span>
