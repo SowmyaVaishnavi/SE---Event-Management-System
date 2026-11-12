@@ -4,9 +4,7 @@ require("dotenv").config({
     path: path.join(__dirname, ".env")
 });
 
-const { startReminderSchedule } = require("./lib/reminders");
 // ...
-startReminderSchedule();
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -83,7 +81,7 @@ async function startServer() {
     }
 
     console.log("MongoDB connected successfully");
-
+    require("./lib/reminders").startReminderSchedule();
     listen(app, { port: Number(PORT) });
 
     // EMS-NF-004: move old audit-log rows to the archive every day (docs/LOG_RETENTION.md).
