@@ -228,6 +228,13 @@ router.post("/:id/confirm", requireAuth, async (req, res) => {
       message: `We received ${formatInr(payment.amountPaise)} for "${event?.title ?? "your event"}". Receipt ${payment.receiptNumber}. Your ticket is under My tickets.`,
       event: payment.event,
     });
+    // EMS-F-016: a paid booking also gets the booking confirmation, once the payment has confirmed it.
+    notify([payment.user], {
+      type: "booking_confirmed",
+      title: `Booking confirmed: ${event?.title ?? "your event"}`,
+      message: `You're booked for "${event?.title ?? "your event"}"${event?.date ? ` on ${new Date(event.date).toUTCString()}` : ""}. Your ticket is under My tickets.`,
+      event: payment.event,
+    });
 
     return res.json({
       status: "paid",

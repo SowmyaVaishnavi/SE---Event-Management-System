@@ -13,7 +13,7 @@ const bookingRoutes = require("../routes/bookings");
 
 const oid = (n) => String(n).padStart(24, "0");
 const future = (d) => new Date(Date.now() + d * 864e5);
-let events, bookings, seq;
+let events, bookings, seq, notes;
 
 // Query stand-in: awaitable, and tolerates .lean() / .sort() / .populate()
 const q = (value) => ({ lean: () => q(value), sort: () => q(value), populate: () => q(value), then: (a, b) => Promise.resolve(value).then(a, b) });
@@ -34,6 +34,7 @@ test.beforeEach(() => {
     { _id: oid(3), title: "No capacity set", category: "Other", date: future(5) },
   ];
   bookings = [];
+  notes = [];
   Event.findById = (id) => q(events.find((e) => e._id === String(id)) ?? null);
   Event.find = (f) => q(events.filter((e) => matches(e, f)));
   Booking.findOne = (f) => q(bookings.find((b) => matches(b, f)) ?? null);
@@ -41,7 +42,7 @@ test.beforeEach(() => {
   Booking.find = (f) => q(bookings.filter((b) => matches(b, f)));
   Booking.countDocuments = async (f) => bookings.filter((b) => matches(b, f)).length;
   Booking.create = async (data) => makeDoc(data);
-  Notification.insertMany = async (docs) => docs; // booking confirmation alerts (EMS-F-016) need no database here
+  Notification.insertMany = async (docs) => { notes.push(...docs); return docs; }; // booking confirmation alerts (EMS-F-016) need no database here
   User.find = () => q([]);
   Notification.updateOne = async () => ({ matchedCount: 1 });
 });
@@ -76,6 +77,25 @@ test("book: confirms and returns a ticket code", async () => {
   assert.strictEqual(r.body.qrCode, r.body.ticket.ticketCode);
   assert.ok(r.body.ticketId);
   assert.match(r.body.ticket.ticketCode, /^EMS-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+});
+
+test("book: a free booking sends a confirmation alert to the attendee (EMS-F-016, TC-Notify-01)", async () => {
+  const r = await call("POST", `/events/${oid(1)}/register`, { user: alice });
+  assert.strictEqual(r.status, 201);
+  assert.strictEqual(notes.length, 1);
+  assert.strictEqual(String(notes[0].user), alice.id);
+  assert.strictEqual(notes[0].type, "booking_confirmed");
+  assert.match(notes[0].title, /Booking confirmed: Tech Talk/);
+  assert.match(notes[0].message, /Tech Talk/);
+  assert.strictEqual(String(notes[0].event), oid(1));
+});
+
+test("book: a refused booking sends no confirmation alert", async () => {
+  await call("POST", `/events/${oid(1)}/register`, { user: alice });
+  notes.length = 0;
+  assert.strictEqual((await call("POST", `/events/${oid(1)}/register`, { user: alice })).status, 409); // double booking
+  assert.strictEqual((await call("POST", `/events/${oid(2)}/register`, { user: bob })).status, 409); // past event
+  assert.strictEqual(notes.length, 0);
 });
 
 test("book: rejects double booking, full events, past events, unknown events", async () => {
